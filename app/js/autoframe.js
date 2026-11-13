@@ -91,6 +91,73 @@
     return out;
   }
 
+  /* ---------- 모서리 좌표 숫자 ----------
+   * 도곽 모서리에는 좌표 숫자(+900, -250, +200, 0 등)가 도곽선 바로 바깥에, 모서리에서 시작해 선을 따라 적혀 있다.
+   * (가로 숫자: 위·아래 변 바깥, 세로 숫자: 좌·우 변 바깥. 모든 모서리에 있지는 않음)
+   * 선 바로 바깥 띠의 잉크 − 한 띠 더 바깥의 잉크 = 숫자 (종이 모눈은 양쪽에 고르게 있어 빠짐)
+   * 띠 안에서 끝까지 이어진 줄(모눈선)은 숫자가 아니므로 셈에서 뺌
+   */
+  const LABEL_W = App.frameParams && App.frameParams.lw != null ? App.frameParams.lw : 5; // 숫자 점수 비중
+  function normInk(g) {
+    if (g.inkN) return g.inkN;
+    const p99 = Float32Array.from(g.ink).sort()[Math.floor(g.ink.length * 0.99)] + 1e-3;
+    g.inkN = g.ink.map((v) => Math.min(1.5, v / p99));
+    return g.inkN;
+  }
+  function textIn(g, x0, y0, x1, y1, orient) {
+    const { w, h } = g, ink = normInk(g);
+    x0 = Math.max(0, Math.round(x0)); y0 = Math.max(0, Math.round(y0));
+    x1 = Math.min(w, Math.round(x1)); y1 = Math.min(h, Math.round(y1));
+    if (x1 - x0 < 2 || y1 - y0 < 2) return 0;
+    let sum = 0, cnt = 0;
+    if (orient === 'h') { // 가로 띠: 끝까지 이어진 가로줄은 뺌
+      for (let y = y0; y < y1; y++) {
+        let s = 0, on = 0;
+        for (let x = x0; x < x1; x++) { const v = ink[y * w + x]; s += v; if (v > 0.35) on++; }
+        if (on > (x1 - x0) * 0.6) continue;
+        sum += s; cnt += x1 - x0;
+      }
+    } else {
+      for (let x = x0; x < x1; x++) {
+        let s = 0, on = 0;
+        for (let y = y0; y < y1; y++) { const v = ink[y * w + x]; s += v; if (v > 0.35) on++; }
+        if (on > (y1 - y0) * 0.6) continue;
+        sum += s; cnt += y1 - y0;
+      }
+    }
+    return cnt ? sum / cnt : 0;
+  }
+  // side: 'L'|'R'|'T'|'B', pos: 그 변의 위치, a·b: 그 변의 양 끝(모서리)
+  function labelAt(g, side, pos, a, b) {
+    const big = Math.max(g.w, g.h);
+    // 숫자 실측(1125px 원도): 높이 약 3px, 길이 15~20px, 선에서 1~2px 바깥 → 띠도 그 크기로
+    const P = App.frameParams || {};
+    const d1 = P.d1 != null ? P.d1 : 0;
+    const t = Math.max(3, Math.round(big * (P.th || 0.0045))), L = Math.round(big * (P.len || 0.022));
+    const strip = () => {
+      let v = 0;
+      for (const [s0, s1] of [[a, a + L], [b - L, b]]) {
+        if (side === 'L' || side === 'R') {
+          const sgn = side === 'L' ? -1 : 1;
+          const xa = pos + sgn * d1, xb = xa + sgn * t;
+          const near_ = textIn(g, Math.min(xa, xb), s0, Math.max(xa, xb), s1, 'v');
+          const far_ = textIn(g, Math.min(xa, xb) + sgn * (t + 2), s0, Math.max(xa, xb) + sgn * (t + 2), s1, 'v');
+          v += Math.max(0, near_ - far_);
+        } else {
+          const sgn = side === 'T' ? -1 : 1;
+          const ya = pos + sgn * d1, yb = ya + sgn * t;
+          const near_ = textIn(g, s0, Math.min(ya, yb), s1, Math.max(ya, yb), 'h');
+          const far_ = textIn(g, s0, Math.min(ya, yb) + sgn * (t + 2), s1, Math.max(ya, yb) + sgn * (t + 2), 'h');
+          v += Math.max(0, near_ - far_);
+        }
+      }
+      return v;
+    };
+    return strip();
+  }
+  App._labelAt = labelAt; // 시험용
+  App._prepare = (s) => prepare(s); // 시험용
+
   // 1단계: 후보 사각형
   function candidates(g, aspect = 1.25, K = 20) {
     const { w, h, ink } = g;
@@ -111,6 +178,12 @@
       const outside = (hc(t, l - ext, l - 2) + hc(t, r + 2, r + ext) + hc(b, l - ext, l - 2) + hc(b, r + 2, r + ext)
         + vc(l, t - ext, t - 2) + vc(l, b + 2, b + ext) + vc(r, t - ext, t - 2) + vc(r, b + 2, b + ext)) / 8;
       out.push({ score: inside - 0.7 * outside, fx: fw / w, fy: fh / h, t, b, l, r });
+    }
+    // 선 점수 상위 후보에 모서리 숫자 점수를 더함
+    out.sort((a, b) => b.score - a.score);
+    for (const c of out.slice(0, 400)) {
+      c.label = labelAt(g, 'L', c.l, c.t, c.b) + labelAt(g, 'R', c.r, c.t, c.b) + labelAt(g, 'T', c.t, c.l, c.r) + labelAt(g, 'B', c.b, c.l, c.r);
+      c.score += LABEL_W * 0.25 * c.label;
     }
     out.sort((a, b) => b.score - a.score);
     return out.slice(0, 300);
@@ -144,26 +217,50 @@
     const ext = Math.max(10, Math.round(Math.min(w, h) * 0.05));
     const win = 0.2, pen = 0.7;
     let sv = 0, sh = 0;
+    const lab = (side, a, b, n) => { const arr = new Float32Array(n); for (let i = 0; i < n; i++) arr[i] = labelAt(g, side, i, a, b); return arr; };
     for (let it = 0; it < 3; it++) {
       let best = null;
+      const labL = lab('L', t, b, w), labR = lab('R', t, b, w);
       for (let fw = fx * w * 0.96; fw < fx * w * 1.05; fw += 1) {
         for (let ll = Math.max(w * MARGIN, l - w * win); ll < Math.min(w * (1 - MARGIN) - fw, l + w * win); ll += 1) {
           const rr = ll + fw;
-          const sc = vc(ll, t, b) + vc(rr, t, b) - pen * (vc(ll, t - ext, t - 2) + vc(ll, b + 2, b + ext) + vc(rr, t - ext, t - 2) + vc(rr, b + 2, b + ext)) / 2;
+          const sc = vc(ll, t, b) + vc(rr, t, b) - pen * (vc(ll, t - ext, t - 2) + vc(ll, b + 2, b + ext) + vc(rr, t - ext, t - 2) + vc(rr, b + 2, b + ext)) / 2
+            + LABEL_W * (labL[Math.round(ll)] + labR[Math.round(rr)] || 0);
           if (!best || sc > best.sc) best = { sc, a: ll, b: rr };
         }
       }
       if (best) { sv = best.sc; l = best.a; r = best.b; }
       const fh0 = (r - l) / aspect; // 세로 길이는 가로 길이와 도곽 비율로
       best = null;
+      const labT = lab('T', l, r, h), labB = lab('B', l, r, h);
       for (let fh = fh0 * 0.985; fh < fh0 * 1.015; fh += 0.5) {
         for (let tt = Math.max(h * MARGIN, t - h * win); tt < Math.min(h * (1 - MARGIN) - fh, t + h * win); tt += 1) {
           const bb = tt + fh;
-          const sc = hc(tt, l, r) + hc(bb, l, r) - pen * (hc(tt, l - ext, l - 2) + hc(tt, r + 2, r + ext) + hc(bb, l - ext, l - 2) + hc(bb, r + 2, r + ext)) / 2;
+          const sc = hc(tt, l, r) + hc(bb, l, r) - pen * (hc(tt, l - ext, l - 2) + hc(tt, r + 2, r + ext) + hc(bb, l - ext, l - 2) + hc(bb, r + 2, r + ext)) / 2
+            + LABEL_W * (labT[Math.round(tt)] + labB[Math.round(bb)] || 0);
           if (!best || sc > best.sc) best = { sc, a: tt, b: bb };
         }
       }
       if (best) { sh = best.sc; t = best.a; b = best.b; }
+    }
+    // 마지막: 변마다 따로 '그 변의 선 + 그 변에 붙은 모서리 숫자'로 미세 조정 (±1.5%)
+    const fw = (App.frameParams && App.frameParams.fine) ?? 0.015;
+    if (fw > 0) {
+      const sideScore = {
+        L: (x) => vc(x, t, b) - pen * (vc(x, t - ext, t - 2) + vc(x, b + 2, b + ext)) / 2 + LABEL_W * labelAt(g, 'L', x, t, b),
+        R: (x) => vc(x, t, b) - pen * (vc(x, t - ext, t - 2) + vc(x, b + 2, b + ext)) / 2 + LABEL_W * labelAt(g, 'R', x, t, b),
+        T: (y) => hc(y, l, r) - pen * (hc(y, l - ext, l - 2) + hc(y, r + 2, r + ext)) / 2 + LABEL_W * labelAt(g, 'T', y, l, r),
+        B: (y) => hc(y, l, r) - pen * (hc(y, l - ext, l - 2) + hc(y, r + 2, r + ext)) / 2 + LABEL_W * labelAt(g, 'B', y, l, r),
+      };
+      const best1 = (fn, v0, span) => {
+        let bv = v0, bs = fn(v0);
+        for (let v = Math.round(v0 - span); v <= v0 + span; v++) { const sc = fn(v); if (sc > bs) { bs = sc; bv = v; } }
+        return bv;
+      };
+      for (let it = 0; it < 2; it++) {
+        l = best1(sideScore.L, l, w * fw); r = best1(sideScore.R, r, w * fw);
+        t = best1(sideScore.T, t, h * fw); b = best1(sideScore.B, b, h * fw);
+      }
     }
     return { t, b, l, r, score: (sv + sh) / 2 };
   }
