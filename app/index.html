@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>지적원도 연결 도구</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-icon" aria-hidden="true">▦</span>
+      <h1>지적원도 연결 도구</h1>
+      <span class="badge">1차 프로토타입</span>
+    </div>
+    <ol class="steps" aria-label="작업 단계">
+      <li class="step"><span>1</span>파일 정리</li>
+      <li class="step"><span>2</span>배치</li>
+      <li class="step"><span>3</span>연결·조정</li>
+      <li class="step"><span>4</span>저장</li>
+    </ol>
+    <div class="top-actions">
+      <button id="btn-open" class="btn">작업 불러오기</button>
+      <button id="btn-save" class="btn" title="Ctrl+S">작업 저장</button>
+      <button id="btn-export" class="btn btn-primary">연결 이미지 내보내기</button>
+    </div>
+  </header>
+
+  <div id="restore-bar" class="restore-bar" hidden>
+    <span id="restore-text"></span>
+    <button id="restore-yes" class="btn btn-small">이어서 하기</button>
+    <button id="restore-no" class="btn btn-small btn-ghost">새로 시작</button>
+  </div>
+
+  <main class="workspace">
+    <!-- 왼쪽: 원본 목록 -->
+    <aside class="pane pane-left" aria-label="원본 도면">
+      <div class="pane-head">
+        <h2>원본 도면 <small id="sheet-count"></small></h2>
+        <button id="btn-add" class="btn btn-small">＋ 파일 추가</button>
+      </div>
+      <label class="field">
+        <span>공통 이름 (새 파일명: 이름_번호)</span>
+        <input id="project-name" type="text" placeholder="예: 남산정" autocomplete="off">
+      </label>
+      <div id="empty-left" class="empty">
+        <p>같은 지역의 원도를<br>한 번에 끌어다 놓으세요.</p>
+        <p class="muted">파일명의 숫자 순서로 정렬되고,<br>첫 번째 파일이 0번(배치도)이 됩니다.</p>
+        <button id="btn-add-empty" class="btn">파일 선택</button>
+      </div>
+      <ol id="sheet-list" class="sheet-list"></ol>
+      <div class="pane-foot">
+        <button id="btn-sort" class="btn btn-small btn-ghost" title="원래 파일명의 숫자 순서로 다시 정렬">이름순 정렬</button>
+        <button id="btn-zip" class="btn btn-small" title="새 이름을 붙인 사본과 이름표(CSV)를 ZIP으로">정리된 사본 받기</button>
+      </div>
+    </aside>
+
+    <!-- 가운데: 연결 화면 -->
+    <section class="pane pane-center" aria-label="연결 화면">
+      <div class="toolbar">
+        <div class="tool-group">
+          <label class="inline">열 <input id="arrange-cols" type="number" min="1" max="30" value="" placeholder="자동"></label>
+          <button id="btn-arrange" class="btn btn-small" title="파일 순서대로 격자에 배치">자동 배열</button>
+        </div>
+        <div class="tool-group">
+          <label class="inline">겹치기
+            <select id="btn-blend-all">
+              <option value="multiply">곱하기 (전체)</option>
+              <option value="normal">보통 (전체)</option>
+            </select>
+          </label>
+          <button id="btn-layout" class="btn btn-small btn-ghost" aria-pressed="false">0번 배치도</button>
+          <button id="btn-labels" class="btn btn-small btn-ghost" aria-pressed="true">번호 표시</button>
+        </div>
+        <div class="tool-group">
+          <button id="btn-undo" class="icon-btn" title="되돌리기 (Ctrl+Z)" aria-label="되돌리기">↶</button>
+          <button id="btn-redo" class="icon-btn" title="다시 하기 (Ctrl+Shift+Z)" aria-label="다시 하기">↷</button>
+          <button id="btn-zoom-out" class="icon-btn" aria-label="축소">−</button>
+          <span id="zoom-label" class="zoom-label">100%</span>
+          <button id="btn-zoom-in" class="icon-btn" aria-label="확대">＋</button>
+          <button id="btn-fit" class="btn btn-small btn-ghost" title="전체 보기 (F)">맞춤</button>
+        </div>
+      </div>
+      <div class="board-wrap">
+        <canvas id="board" tabindex="0" aria-label="연결 화면: 도면을 끌어 옮기고, 모서리로 배율, 위쪽 원으로 회전"></canvas>
+        <div id="empty-center" class="empty empty-center">
+          <p>원도를 불러오면 파일 순서대로 자동 배열됩니다.</p>
+          <p class="muted">도면을 끌어 옮기고, 모서리로 크기를, 위쪽 원으로 회전을 조정합니다.<br>빈 곳을 끌거나 휠로 화면을 이동·확대합니다.</p>
+        </div>
+        <div id="layout-viewer" class="layout-viewer" hidden>
+          <div class="lv-head">
+            <strong id="layout-title">0번 배치도</strong>
+            <span>
+              <button id="layout-fit" class="btn btn-small btn-ghost">맞춤</button>
+              <button id="layout-close" class="icon-btn" aria-label="닫기">×</button>
+            </span>
+          </div>
+          <div class="lv-body"><canvas id="layout-canvas"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 오른쪽: 조정 도구 -->
+    <aside class="pane pane-right" aria-label="선택 도면 조정">
+      <div class="pane-head"><h2>선택 도면 조정</h2></div>
+      <div id="panel-empty" class="empty">
+        <p class="muted">연결 화면에서 도면을 누르면<br>위치·회전·배율을 조정할 수 있습니다.</p>
+      </div>
+      <div id="panel-body" hidden>
+        <div class="sel-card">
+          <strong id="sel-name"></strong>
+          <span id="sel-orig" class="muted"></span>
+        </div>
+        <label class="field">
+          <span>도면 번호 (원도에 적힌 번호)</span>
+          <input id="f-sheetno" type="text" placeholder="예: 三, 3" autocomplete="off">
+        </label>
+
+        <h3>위치·회전·배율</h3>
+        <div class="grid2">
+          <label class="field"><span>가로 위치 (px)</span><input id="f-x" type="number" step="1"></label>
+          <label class="field"><span>세로 위치 (px)</span><input id="f-y" type="number" step="1"></label>
+          <label class="field"><span>회전 (°)</span><input id="f-rot" type="number" step="0.1"></label>
+          <label class="field"><span>배율 (%)</span><input id="f-scale" type="number" step="0.1"></label>
+        </div>
+        <div class="nudge">
+          <span class="muted">미세 이동</span>
+          <button class="icon-btn" data-nudge="-1,0" aria-label="왼쪽으로">←</button>
+          <button class="icon-btn" data-nudge="0,-1" aria-label="위로">↑</button>
+          <button class="icon-btn" data-nudge="0,1" aria-label="아래로">↓</button>
+          <button class="icon-btn" data-nudge="1,0" aria-label="오른쪽으로">→</button>
+          <span class="muted">회전</span>
+          <button class="icon-btn" data-rot="-0.1" aria-label="반시계 0.1도">⟲</button>
+          <button class="icon-btn" data-rot="0.1" aria-label="시계 0.1도">⟳</button>
+        </div>
+
+        <h3>여백 자르기 (원본 px)</h3>
+        <div class="grid2">
+          <label class="field"><span>왼쪽</span><input id="f-crop-l" type="number" min="0" step="10"></label>
+          <label class="field"><span>오른쪽</span><input id="f-crop-r" type="number" min="0" step="10"></label>
+          <label class="field"><span>위</span><input id="f-crop-t" type="number" min="0" step="10"></label>
+          <label class="field"><span>아래</span><input id="f-crop-b" type="number" min="0" step="10"></label>
+        </div>
+
+        <h3>표시</h3>
+        <label class="field">
+          <span>투명도 <b id="f-opacity-val">100%</b></span>
+          <input id="f-opacity" type="range" min="10" max="100" step="1">
+        </label>
+        <div class="grid2">
+          <label class="field"><span>겹치기</span>
+            <select id="f-blend">
+              <option value="multiply">곱하기</option>
+              <option value="normal">보통</option>
+            </select>
+          </label>
+          <label class="check"><input id="f-visible" type="checkbox"> 보이기</label>
+        </div>
+        <div class="btn-row">
+          <button id="btn-front" class="btn btn-small btn-ghost">맨 앞으로</button>
+          <button id="btn-back" class="btn btn-small btn-ghost">맨 뒤로</button>
+          <button id="btn-reset-rot" class="btn btn-small btn-ghost">회전·배율 초기화</button>
+        </div>
+        <p class="hint">방향키 1px · Shift+방향키 10px · [ ] 0.1° 회전 · 회전 손잡이를 Shift와 끌면 15° 단위</p>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="statusbar">
+    <span id="status-msg" class="status-msg" role="status"></span>
+    <span class="log" title="Before/After 비교용 작업 기록 — project.json에 함께 저장됩니다">
+      ⏱ <b id="log-time">0:00</b> · <b id="log-ops">조정 0회</b>
+    </span>
+  </footer>
+
+  <dialog id="export-dialog" class="dialog">
+    <form method="dialog">
+      <h2>연결 이미지 내보내기</h2>
+      <label class="field">
+        <span>배율 (원본 해상도 대비)</span>
+        <select id="export-scale">
+          <option value="0.1">10% · 확인용</option>
+          <option value="0.25" selected>25%</option>
+          <option value="0.5">50%</option>
+          <option value="1">100% · 원본 해상도</option>
+        </select>
+      </label>
+      <p id="export-info" class="muted"></p>
+      <p class="hint">숨긴 도면은 제외됩니다. 원본 해상도가 브라우저 한계를 넘으면 <code>tools/export.py</code>로 project.json을 출력하세요.</p>
+      <div class="btn-row end">
+        <button id="export-cancel" class="btn btn-ghost" value="cancel">취소</button>
+        <button id="export-go" class="btn btn-primary">PNG 저장</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="alert" hidden></div>
+  <div class="drop-overlay" aria-hidden="true">원도 이미지 또는 project.json을 놓으세요</div>
+
+  <input id="file-input" type="file" accept="image/*,.json,application/json" multiple hidden>
+  <input id="project-input" type="file" accept=".json,application/json" hidden>
+
+  <script src="js/util.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/files.js"></script>
+  <script src="js/canvas.js"></script>
+  <script src="js/panel.js"></script>
+  <script src="js/export.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

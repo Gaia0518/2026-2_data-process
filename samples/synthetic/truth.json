@@ -1,0 +1,117 @@
+{
+  "note": "가상 원도의 정답 배치 (지도 좌표 px)",
+  "cell": [
+    900,
+    700
+  ],
+  "sheets": [
+    {
+      "file": "CJA0099999_0001.jpg",
+      "sheetNo": "一",
+      "grid": {
+        "row": 0,
+        "col": 0
+      },
+      "mapCenter": [
+        450.0,
+        350.0
+      ],
+      "appliedRotationCCW": -0.5201838063241088,
+      "appliedScale": 1.0096975048133574,
+      "fix": {
+        "rotation": -0.52,
+        "scale": 0.9904
+      }
+    },
+    {
+      "file": "CJA0099999_0002.jpg",
+      "sheetNo": "二",
+      "grid": {
+        "row": 0,
+        "col": 1
+      },
+      "mapCenter": [
+        1350.0,
+        350.0
+      ],
+      "appliedRotationCCW": -0.07478930202051726,
+      "appliedScale": 1.002563298787338,
+      "fix": {
+        "rotation": -0.075,
+        "scale": 0.99744
+      }
+    },
+    {
+      "file": "CJA0099999_0003.jpg",
+      "sheetNo": "三",
+      "grid": {
+        "row": 0,
+        "col": 2
+      },
+      "mapCenter": [
+        2250.0,
+        350.0
+      ],
+      "appliedRotationCCW": -0.18925842131119586,
+      "appliedScale": 0.9921183182958061,
+      "fix": {
+        "rotation": -0.189,
+        "scale": 1.00794
+      }
+    },
+    {
+      "file": "CJA0099999_0004.jpg",
+      "sheetNo": "四",
+      "grid": {
+        "row": 1,
+        "col": 0
+      },
+      "mapCenter": [
+        450.0,
+        1050.0
+      ],
+      "appliedRotationCCW": 1.0636268988199868,
+      "appliedScale": 0.9916000730678343,
+      "fix": {
+        "rotation": 1.064,
+        "scale": 1.00847
+      }
+    },
+    {
+      "file": "CJA0099999_0005.jpg",
+      "sheetNo": "五",
+      "grid": {
+        "row": 1,
+        "col": 1
+      },
+      "mapCenter": [
+        1350.0,
+        1050.0
+      ],
+      "appliedRotationCCW": -0.6552234908219354,
+      "appliedScale": 0.9974892964481805,
+      "fix": {
+        "rotation": -0.655,
+        "scale": 1.00252
+      }
+    },
+    {
+      "file": "CJA0099999_0006.jpg",
+      "sheetNo": "六",
+      "grid": {
+        "row": 1,
+        "col": 2
+      },
+      "mapCenter": [
+        2250.0,
+        1050.0
+      ],
+      "appliedRotationCCW": 0.3038272975204743,
+      "appliedScale": 1.027622755343437,
+      "fix": {
+        "rotation": 0.304,
+        "scale": 0.97312
+      }
+    }
+  ]
+}

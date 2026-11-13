@@ -1,0 +1,218 @@
+{
+  "app": "jijeok-connect",
+  "version": 1,
+  "project": "가상정",
+  "savedAt": "2026-11-13T05:50:41.478Z",
+  "layout": {
+    "file": "가상정_0.jpg",
+    "originalName": "CJA0099999_0000.jpg",
+    "size": [
+      1400,
+      1100
+    ]
+  },
+  "sheets": [
+    {
+      "file": "가상정_1.jpg",
+      "originalName": "CJA0099999_0001.jpg",
+      "fileIndex": 1,
+      "sheetNo": "一",
+      "grid": {
+        "row": 0,
+        "col": 0
+      },
+      "size": [
+        1141,
+        941
+      ],
+      "z": 0,
+      "transform": {
+        "x": 450,
+        "y": 350,
+        "rotation": -0.52,
+        "scale": 0.9904
+      },
+      "crop": {
+        "left": 116.13612283398919,
+        "right": 116.13612283398919,
+        "top": 117.10587331532491,
+        "bottom": 117.10587331532491
+      },
+      "display": {
+        "opacity": 1,
+        "blend": "multiply",
+        "visible": true
+      }
+    },
+    {
+      "file": "가상정_2.jpg",
+      "originalName": "CJA0099999_0002.jpg",
+      "fileIndex": 2,
+      "sheetNo": "二",
+      "grid": {
+        "row": 0,
+        "col": 1
+      },
+      "size": [
+        1125,
+        924
+      ],
+      "z": 1,
+      "transform": {
+        "x": 1350,
+        "y": 350,
+        "rotation": -0.075,
+        "scale": 0.99744
+      },
+      "crop": {
+        "left": 111.34651554569786,
+        "right": 111.34651554569786,
+        "top": 111.10284542443168,
+        "bottom": 111.10284542443168
+      },
+      "display": {
+        "opacity": 1,
+        "blend": "multiply",
+        "visible": true
+      }
+    },
+    {
+      "file": "가상정_3.jpg",
+      "originalName": "CJA0099999_0003.jpg",
+      "fileIndex": 3,
+      "sheetNo": "三",
+      "grid": {
+        "row": 0,
+        "col": 2
+      },
+      "size": [
+        1115,
+        917
+      ],
+      "z": 2,
+      "transform": {
+        "x": 2250,
+        "y": 350,
+        "rotation": -0.189,
+        "scale": 1.00794
+      },
+      "crop": {
+        "left": 111.04675676688726,
+        "right": 111.04675676688726,
+        "top": 111.25858859646786,
+        "bottom": 111.25858859646786
+      },
+      "display": {
+        "opacity": 1,
+        "blend": "multiply",
+        "visible": true
+      }
+    },
+    {
+      "file": "가상정_4.jpg",
+      "originalName": "CJA0099999_0004.jpg",
+      "fileIndex": 4,
+      "sheetNo": "四",
+      "grid": {
+        "row": 1,
+        "col": 0
+      },
+      "size": [
+        1128,
+        934
+      ],
+      "z": 3,
+      "transform": {
+        "x": 450,
+        "y": 1050,
+        "rotation": 1.064,
+        "scale": 1.00847
+      },
+      "crop": {
+        "left": 117.77996711947458,
+        "right": 117.77996711947458,
+        "top": 119.939974426258,
+        "bottom": 119.939974426258
+      },
+      "display": {
+        "opacity": 1,
+        "blend": "multiply",
+        "visible": true
+      }
+    },
+    {
+      "file": "가상정_5.jpg",
+      "originalName": "CJA0099999_0005.jpg",
+      "fileIndex": 5,
+      "sheetNo": "五",
+      "grid": {
+        "row": 1,
+        "col": 1
+      },
+      "size": [
+        1129,
+        932
+      ],
+      "z": 4,
+      "transform": {
+        "x": 1350,
+        "y": 1050,
+        "rotation": -0.655,
+        "scale": 1.00252
+      },
+      "crop": {
+        "left": 115.62981659831877,
+        "right": 115.62981659831877,
+        "top": 116.87874624313685,
+        "bottom": 116.87874624313685
+      },
+      "display": {
+        "opacity": 1,
+        "blend": "multiply",
+        "visible": true
+      }
+    },
+    {
+      "file": "가상정_6.jpg",
+      "originalName": "CJA0099999_0006.jpg",
+      "fileIndex": 6,
+      "sheetNo": "六",
+      "grid": {
+        "row": 1,
+        "col": 2
+      },
+      "size": [
+        1157,
+        952
+      ],
+      "z": 5,
+      "transform": {
+        "x": 2250,
+        "y": 1050,
+        "rotation": 0.304,
+        "scale": 0.97312
+      },
+      "crop": {
+        "left": 116.06976009545338,
+        "right": 116.06976009545338,
+        "top": 116.33203562979708,
+        "bottom": 116.33203562979708
+      },
+      "display": {
+        "opacity": 1,
+        "blend": "multiply",
+        "visible": true
+      }
+    }
+  ],
+  "log": {
+    "startedAt": "2026-11-13T05:50:40.139Z",
+    "savedAt": "2026-11-13T05:50:41.478Z",
+    "elapsedSec": 1,
+    "ops": {
+      "load": 7,
+      "export": 1,
+      "save": 1
+    }
+  }
+}

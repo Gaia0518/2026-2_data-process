@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "지적원도 연결 작업 정보 (project.json)",
+  "description": "편집기(app/)가 저장하고 tools/export.py가 읽는 형식. 좌표 단위는 원본 이미지 px.",
+  "type": "object",
+  "required": ["app", "version", "sheets"],
+  "properties": {
+    "app": { "const": "jijeok-connect" },
+    "version": { "const": 1 },
+    "project": { "type": "string", "description": "공통 이름. 새 파일명은 <project>_<번호>" },
+    "savedAt": { "type": "string", "format": "date-time" },
+    "layout": {
+      "description": "0번 표지·배치도",
+      "type": ["object", "null"],
+      "properties": {
+        "file": { "type": "string" },
+        "originalName": { "type": "string" },
+        "size": { "$ref": "#/definitions/size" }
+      }
+    },
+    "sheets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["file", "originalName", "fileIndex", "size", "transform", "crop", "display"],
+        "properties": {
+          "file": { "type": "string", "description": "정리된 새 파일명" },
+          "originalName": { "type": "string", "description": "내려받은 원래 파일명 (다시 불러올 때 대조)" },
+          "fileIndex": { "type": "integer", "minimum": 1, "description": "파일 순서 번호" },
+          "sheetNo": { "type": "string", "description": "원도에 적힌 도면 번호 (파일 순서와 다를 수 있음)" },
+          "grid": {
+            "type": ["object", "null"],
+            "description": "배치도상의 칸 위치",
+            "properties": { "row": { "type": "integer" }, "col": { "type": "integer" } }
+          },
+          "size": { "$ref": "#/definitions/size" },
+          "z": { "type": "integer", "description": "그리는 순서 (클수록 위)" },
+          "transform": {
+            "type": "object",
+            "required": ["x", "y", "rotation", "scale"],
+            "properties": {
+              "x": { "type": "number", "description": "잘라낸 영역의 중심 x (월드 px)" },
+              "y": { "type": "number", "description": "잘라낸 영역의 중심 y (월드 px)" },
+              "rotation": { "type": "number", "description": "시계 방향 회전(도)" },
+              "scale": { "type": "number", "exclusiveMinimum": 0 }
+            }
+          },
+          "crop": {
+            "type": "object",
+            "description": "각 변에서 잘라낼 여백 (원본 px)",
+            "properties": {
+              "left": { "type": "number", "minimum": 0 },
+              "top": { "type": "number", "minimum": 0 },
+              "right": { "type": "number", "minimum": 0 },
+              "bottom": { "type": "number", "minimum": 0 }
+            }
+          },
+          "display": {
+            "type": "object",
+            "properties": {
+              "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+              "blend": { "enum": ["multiply", "normal"] },
+              "visible": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    "log": {
+      "description": "Before/After 비교용 작업 기록",
+      "type": "object",
+      "properties": {
+        "startedAt": { "type": ["string", "null"] },
+        "savedAt": { "type": "string" },
+        "elapsedSec": { "type": "integer" },
+        "ops": { "type": "object", "additionalProperties": { "type": "integer" } }
+      }
+    }
+  },
+  "definitions": {
+    "size": { "type": "array", "items": { "type": "integer" }, "minItems": 2, "maxItems": 2, "description": "[가로, 세로] 원본 px" }
+  }
+}

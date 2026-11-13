@@ -1,0 +1,16 @@
+# 실제 원도와 출력물 (용량·자료 이용 조건 때문에 올리지 않음)
+data/*
+!data/README.md
+
+# 출력 이미지
+*_연결_*.png
+*_정리본.zip
+
+# 파이썬
+__pycache__/
+*.pyc
+.venv/
+
+# 운영체제
+.DS_Store
+Thumbs.db
