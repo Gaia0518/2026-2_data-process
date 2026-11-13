@@ -51,6 +51,11 @@
     document.getElementById('f-whiten').checked = !!s.display.whiten;
     document.getElementById('f-visible').checked = s.display.visible;
     App.renderFramePanel(s);
+    // 펴진 원도는 도곽이 곧 자르기 범위이므로 여백 자르기 입력을 숨김
+    const rect = App.isRectified(s);
+    const cropGrid = document.getElementById('f-crop-l').closest('.grid2');
+    cropGrid.hidden = rect;
+    cropGrid.previousElementSibling.hidden = rect;
   };
 
   function edit(kind, fn) {

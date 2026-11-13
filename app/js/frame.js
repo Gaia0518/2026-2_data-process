@@ -10,7 +10,7 @@
 
   // 도곽 중심의 도면 내부 좌표 (자르기 중심 기준, 배율 적용 전)
   App.frameCenterLocal = (s) => {
-    if (!s.frame) return [0, 0];
+    if (!s.frame || App.isRectified(s)) return [0, 0]; // 펴진 이미지는 도곽 중심 = 이미지 중심
     const { w, h } = App.cropSize(s);
     const c = s.frame.corners;
     const cx = (c[0][0] + c[1][0] + c[2][0] + c[3][0]) / 4;
@@ -57,7 +57,8 @@
   };
 
   // 도곽을 적용: 자르기 = 도곽을 감싸는 사각형, 회전 = 기울기 보정, 배율 = 기준 도곽 크기에 맞춤
-  App.applyFrame = (s, corners) => {
+  // rectify: 네 모서리를 직사각형으로 펴서 네 변을 모두 수직·수평으로 (기본). false면 평균 기울기만큼 회전
+  App.applyFrame = (s, corners, rectify = App.rectifyDefault !== false) => {
     const m = App.frameMetrics(corners);
     const keepAt = App.frameAnchor(s); // 도곽 중심이 지금 자리에 그대로 오도록
 
@@ -75,8 +76,9 @@
       right: App.clamp(s.w - Math.ceil(Math.max(...xs)), 0, s.w - 2),
       bottom: App.clamp(s.h - Math.ceil(Math.max(...ys)), 0, s.h - 2),
     };
-    s.frame = { corners: corners.map((c) => c.slice()), clip: true };
-    s.transform.rotation = App.round(-m.angle, 3);
+    s.frame = { corners: corners.map((c) => c.slice()), clip: true, rectify: !!rectify };
+    s._rect = null;
+    s.transform.rotation = rectify ? 0 : App.round(-m.angle, 3);
     s.transform.scale = App.round(scale, 5);
 
     App.placeAt(s, keepAt[0], keepAt[1]);
@@ -154,6 +156,8 @@
     sheet = s;
     pts = s.frame ? s.frame.corners.map((c) => c.slice()) : [];
     snapInfo = pts.map(() => false);
+    $('frame-preview').checked = false;
+    $('frame-rectify').checked = sheet.frame ? sheet.frame.rectify !== false : true;
     $('frame-dialog').showModal();
     requestAnimationFrame(() => { fitFrame(); render(); });
   };
@@ -182,6 +186,7 @@
   const toImg = (sx, sy) => [(sx - fv.ox) / fv.zoom, (sy - fv.oy) / fv.zoom];
   const toScr = (x, y) => [x * fv.zoom + fv.ox, y * fv.zoom + fv.oy];
 
+  let previewCache = null;
   function render() {
     if (!sheet) return;
     const wrap = canvas.parentElement.getBoundingClientRect();
@@ -194,6 +199,45 @@
     ctx.fillStyle = '#3a403e';
     ctx.fillRect(0, 0, wrap.width, wrap.height);
     const k = sheet.preview.width / sheet.w;
+
+    // 펴진 모습 보기: 네 모서리를 지정했으면 편 결과를 화면에 맞춰 보여 줌 (수직·수평 확인용 격자 포함)
+    if (pts.length === 4 && $('frame-preview').checked) {
+      const m = App.frameMetrics(pts);
+      const key = JSON.stringify(pts) + $('frame-rectify').checked;
+      if (!previewCache || previewCache.key !== key) {
+        let img;
+        if ($('frame-rectify').checked) img = App.warpQuad(sheet.preview, k, pts, m.w, m.h);
+        else {
+          // 회전만: 평균 기울기만큼 돌린 결과
+          img = document.createElement('canvas');
+          img.width = Math.round(m.w * k); img.height = Math.round(m.h * k);
+          const g = img.getContext('2d');
+          g.translate(img.width / 2, img.height / 2);
+          g.rotate((-m.angle * Math.PI) / 180);
+          g.drawImage(sheet.preview, -m.center[0] * k, -m.center[1] * k);
+        }
+        previewCache = { key, img };
+      }
+      const img = previewCache.img;
+      const z = Math.min(wrap.width / img.width, wrap.height / img.height) * 0.94;
+      const x0 = (wrap.width - img.width * z) / 2, y0 = (wrap.height - img.height * z) / 2;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, x0, y0, img.width * z, img.height * z);
+      ctx.strokeStyle = 'rgba(25,179,166,0.9)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let i = 0; i <= 8; i++) {
+        const gx = Math.round(x0 + (img.width * z * i) / 8) + 0.5, gy = Math.round(y0 + (img.height * z * i) / 8) + 0.5;
+        ctx.moveTo(gx, y0); ctx.lineTo(gx, y0 + img.height * z);
+        ctx.moveTo(x0, gy); ctx.lineTo(x0 + img.width * z, gy);
+      }
+      ctx.stroke();
+      $('frame-info').textContent = '펴진 모습입니다. 초록 격자와 도곽선이 나란한지 확인하세요. [펴진 모습 보기]를 끄면 모서리를 고칠 수 있습니다.';
+      $('frame-apply').disabled = false;
+      $('frame-apply-next').disabled = false;
+      $('frame-clear').disabled = false;
+      return;
+    }
     ctx.setTransform(d * fv.zoom / k, 0, 0, d * fv.zoom / k, d * fv.ox, d * fv.oy);
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(sheet.preview, 0, 0);
@@ -266,6 +310,7 @@
     else { pts[i] = [x, y]; snapInfo[i] = snapped; }
     if (i < 0 && pts.length < 4 && $('frame-autozoom').checked) focusCorner(pts.length);
     else if (i < 0 && pts.length === 4 && $('frame-autozoom').checked) fitFrame();
+    if (i < 0 && pts.length === 4) $('frame-preview').checked = true; // 네 점을 다 찍으면 펴진 모습을 바로 보여 줌
     render();
   }
 
@@ -273,7 +318,7 @@
 
   function apply(next) {
     App.checkpoint();
-    const r = App.applyFrame(sheet, pts);
+    const r = App.applyFrame(sheet, pts, $('frame-rectify').checked);
     App.logOp('frame');
     App.autosave();
     App.emit('change');
@@ -354,6 +399,8 @@
       }
     });
     $('frame-dialog').addEventListener('close', () => { sheet = null; });
+    $('frame-preview').addEventListener('change', render);
+    $('frame-rectify').addEventListener('change', render);
     $('frame-clear').addEventListener('click', () => { pts = []; snapInfo = []; fitFrame(); render(); });
     $('frame-fit').addEventListener('click', () => { fitFrame(); render(); });
     $('frame-cancel').addEventListener('click', () => $('frame-dialog').close());

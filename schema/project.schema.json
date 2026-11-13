@@ -192,6 +192,17 @@
               "clip": {
                 "type": "boolean",
                 "description": "도곽 바깥 여백을 그리지 않음"
+              },
+              "rectify": {
+                "type": "boolean",
+                "description": "도곽 펴기: 네 모서리를 직사각형(가로·세로 = 마주 보는 변 길이의 평균)으로 원근 보정. 켜면 crop은 쓰지 않음"
+              },
+              "auto": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "description": "자동 지정 결과 (score, review, reason)"
               }
             }
           },

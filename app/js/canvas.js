@@ -111,6 +111,13 @@
     c.globalCompositeOperation = App.BLEND_OPS[s.display.blend] || 'source-over';
     // 종이 밝게: 바랜 종이 색(paper)이 흰색이 되도록 밝기를 올림
     if (s.display.whiten && s.paper) c.filter = `brightness(${Math.min(3, 255 / s.paper).toFixed(3)})`;
+    if (App.isRectified(s)) {
+      // 펴진 이미지: 도곽 안쪽만 반듯한 직사각형으로 (화면은 미리보기를 편 것, 출력은 원본을 그 자리에서 폄)
+      const rimg = img === s.preview ? App.rectPreview(s) : App.warpQuad(img, imgScale, s.frame.corners, w, h);
+      c.drawImage(rimg, 0, 0, rimg.width, rimg.height, -w / 2, -h / 2, w, h);
+      c.restore();
+      return;
+    }
     if (s.frame && s.frame.clip) {
       // 도곽 바깥(여백)은 그리지 않음
       const ox = s.crop.left + w / 2, oy = s.crop.top + h / 2;

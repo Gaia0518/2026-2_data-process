@@ -34,7 +34,26 @@ def find_image(entry: dict, folder: Path) -> Path | None:
     return None
 
 
+def homography(W: float, H: float, quad) -> list[float]:
+    """출력 (0,0)-(W,H) → 원본 사각형 네 점. PIL PERSPECTIVE 계수 (a..h)"""
+    src = [(0, 0), (W, 0), (W, H), (0, H)]
+    A, B = [], []
+    for (u, v), (x, y) in zip(src, quad):
+        A.append([u, v, 1, 0, 0, 0, -u * x, -v * x]); B.append(x)
+        A.append([0, 0, 0, u, v, 1, -u * y, -v * y]); B.append(y)
+    return list(np.linalg.solve(np.array(A, float), np.array(B, float)))
+
+
+def frame_size(s: dict) -> tuple[float, float]:
+    c = s["frame"]["corners"]
+    d = lambda a, b: math.hypot(b[0] - a[0], b[1] - a[1])
+    return (d(c[0], c[1]) + d(c[3], c[2])) / 2, (d(c[0], c[3]) + d(c[1], c[2])) / 2
+
+
 def crop_size(s: dict) -> tuple[float, float]:
+    if s.get("frame") and s["frame"].get("rectify"):
+        w, h = frame_size(s)
+        return max(1, round(w)), max(1, round(h))
     w, h = s["size"]
     c = s["crop"]
     return max(1, w - c["left"] - c["right"]), max(1, h - c["top"] - c["bottom"])
@@ -53,6 +72,18 @@ def render_sheet(img: Image.Image, s: dict, k: float, f: float) -> Image.Image:
     """잘라내기 → 배율 → 회전한 RGBA 조각. f = 실제 이미지 px / 기록된 px"""
     c = s["crop"]
     w, h = crop_size(s)
+    frame = s.get("frame")
+    if frame and frame.get("rectify"):
+        # 도곽 펴기: 네 모서리를 (w×h) 직사각형으로 (원근 보정)
+        out_w = max(1, round(w * s["transform"]["scale"] * k))
+        out_h = max(1, round(h * s["transform"]["scale"] * k))
+        coeffs = homography(out_w, out_h, [(x * f, y * f) for x, y in frame["corners"]])
+        piece = img.convert("RGB").transform((out_w, out_h), Image.PERSPECTIVE, coeffs, Image.BICUBIC, fillcolor=(255, 255, 255))
+        piece.putalpha(255)
+        rot = s["transform"]["rotation"]
+        if abs(rot) > 1e-6:
+            piece = piece.rotate(-rot, resample=Image.BICUBIC, expand=True)
+        return piece
     box = tuple(round(v) for v in (c["left"] * f, c["top"] * f, (c["left"] + w) * f, (c["top"] + h) * f))
     piece = img.crop(box).convert("RGB")
     out_w = max(1, round(w * s["transform"]["scale"] * k))

@@ -30,7 +30,7 @@
     return `${base}_${idx}${sheet.ext.toLowerCase()}`;
   };
 
-  App.cropSize = (s) => ({
+  App.cropSize = (s) => (App.isRectified && App.isRectified(s) ? App.rectSize(s) : {
     w: Math.max(1, s.w - s.crop.left - s.crop.right),
     h: Math.max(1, s.h - s.crop.top - s.crop.bottom),
   });
@@ -161,7 +161,7 @@
           scale: App.round(s.transform.scale, 5),
         },
         crop: { ...s.crop },
-        frame: s.frame ? { corners: s.frame.corners.map(([x, y]) => [App.round(x, 1), App.round(y, 1)]), clip: s.frame.clip, auto: s.frame.auto || null } : null,
+        frame: s.frame ? { corners: s.frame.corners.map(([x, y]) => [App.round(x, 1), App.round(y, 1)]), clip: s.frame.clip, rectify: !!s.frame.rectify, auto: s.frame.auto || null } : null,
         display: { ...s.display },
         paper: s.paper,
       })),
@@ -210,7 +210,7 @@
       } else {
         s.transform = { ...e.transform };
         s.crop = { ...e.crop };
-        s.frame = e.frame ? { corners: e.frame.corners.map((c) => c.slice()), clip: e.frame.clip !== false, auto: e.frame.auto || null } : null;
+        s.frame = e.frame ? { corners: e.frame.corners.map((c) => c.slice()), clip: e.frame.clip !== false, rectify: !!e.frame.rectify, auto: e.frame.auto || null } : null;
       }
       s.display = { opacity: 1, blend: 'darken', visible: true, whiten: false, ...e.display };
       ordered.push(s);
