@@ -99,7 +99,11 @@
         App.fitView();
         // 처음 불러온 묶음에 0번이 있으면 배치도 인식 창을 바로 띄움
         if (wasEmpty && !S.layout && App.mapSheets().length && App.openLayoutDialog) {
-          setTimeout(() => App.openLayoutDialog(), 300);
+          // 도곽을 먼저 자동으로 찾고(배치도 칸 비율에도 쓰임), 이어서 배치도 인식 창을 띄움
+          setTimeout(async () => {
+            try { await App.runAutoFrame({ quiet: true }); } catch (e) { console.error(e); }
+            App.openLayoutDialog();
+          }, 50);
         }
       }
       let msg = `원도 ${added.length}장을 불러왔습니다.`;
@@ -203,6 +207,7 @@
           <span class="new-name">${escapeHTML(App.newName(s))}</span>
           <span class="old-name" title="${escapeHTML(s.originalName)}">${escapeHTML(s.originalName)}</span>
           ${i === 0 ? '<span class="tag">0번 · 배치도</span>' : s.sheetNo ? `<span class="tag tag-no">도면 ${escapeHTML(s.sheetNo)}</span>` : ''}
+          ${s.frame && s.frame.auto && s.frame.auto.review ? '<span class="tag tag-warn" title="도곽 자동 지정 결과를 확인하세요">⚠ 도곽 확인</span>' : ''}
         </span>
         <span class="row-actions">
           ${i === 0 ? '' : `<button class="icon-btn" data-act="eye" title="${hidden ? '보이기' : '숨기기'}" aria-label="${hidden ? '보이기' : '숨기기'}">${hidden ? '◌' : '●'}</button>`}

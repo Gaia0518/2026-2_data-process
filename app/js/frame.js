@@ -284,7 +284,7 @@
     if (next) {
       const list = sheetsToFrame();
       const rest = list.slice(list.indexOf(sheet) + 1).concat(list.slice(0, list.indexOf(sheet)));
-      const n = rest.find((x) => !x.frame);
+      const n = rest.find((x) => !x.frame || (x.frame.auto && x.frame.auto.review));
       if (n) {
         S.selectedId = n.id;
         App.emit('select');
@@ -361,8 +361,10 @@
     $('frame-apply-next').addEventListener('click', () => apply(true));
 
     $('btn-frame').addEventListener('click', () => App.openFrameDialog(App.selected()));
-    $('btn-frame-all').addEventListener('click', () => {
-      const first = App.mapSheets().find((s) => !s.frame) || App.mapSheets()[0];
+    $('btn-frame-all').addEventListener('click', () => App.runAutoFrame({ all: false }));
+    // 도곽 수정: 확인이 필요한(또는 아직 없는) 도면부터 차례로 열기
+    $('btn-frame-review').addEventListener('click', () => {
+      const first = App.mapSheets().find((x) => !x.frame || (x.frame.auto && x.frame.auto.review)) || App.selected() || App.mapSheets()[0];
       if (!first) return App.toast('먼저 원도를 불러오세요.');
       S.selectedId = first.id;
       App.emit('select');
@@ -396,7 +398,11 @@
   App.renderFramePanel = (s) => {
     const has = !!(s && s.frame);
     $('frame-state').textContent = has
-      ? (() => { const m = App.frameMetrics(s.frame.corners); return `지정됨 · ${Math.round(m.w)}×${Math.round(m.h)}px · 기울기 ${App.round(m.angle, 2)}°`; })()
+      ? (() => {
+        const m = App.frameMetrics(s.frame.corners);
+        const how = s.frame.auto ? (s.frame.auto.review ? `⚠ 자동 지정 · 확인 필요 (${s.frame.auto.reason || '점수 낮음'})` : '자동 지정') : '직접 지정';
+        return `${how} · ${Math.round(m.w)}×${Math.round(m.h)}px · 기울기 ${App.round(m.angle, 2)}°`;
+      })()
       : '아직 지정하지 않음';
     $('frame-ref').textContent = S.frameSize ? `기준 도곽 ${S.frameSize.w}×${S.frameSize.h}px` : '기준 도곽: 처음 지정하는 도곽으로 정해짐';
     $('btn-frame').textContent = has ? '도곽 다시 지정' : '도곽 모서리 지정';
