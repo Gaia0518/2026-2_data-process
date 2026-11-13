@@ -247,12 +247,12 @@
     <div class="frame-head">
       <div>
         <h2>배치도 인식 (0번)</h2>
-        <span class="muted">배치도를 자동으로 읽어 칸과 번호를 제안합니다. 확인하고 고친 뒤 적용하세요.</span>
+        <span class="muted">칸 하나를 그리면 격자 전체를 찾고, 번호 순서대로 열을 그으면 번호가 매겨집니다.</span>
       </div>
       <ol class="corner-steps">
-        <li class="corner-step lay-step">① 배치도 영역 선택</li>
-        <li class="corner-step lay-step">② 칸·번호 자동 인식</li>
-        <li class="corner-step lay-step">③ 확인·수정</li>
+        <li class="corner-step lay-step">① 칸 하나 그리기</li>
+        <li class="corner-step lay-step">② 열 따라 번호 긋기</li>
+        <li class="corner-step lay-step">③ 확인·적용</li>
       </ol>
     </div>
     <div class="lay-main">
@@ -261,10 +261,10 @@
         <label class="field"><span>전체 도엽 수 (표지의 「○○枚」)</span><input id="lay-total" type="number" min="1" max="999"></label>
         <fieldset class="lay-modes">
           <legend>마우스 동작</legend>
-          <label><input type="radio" name="lay-mode" value="region"> 배치도 영역 선택 (자동 인식)</label>
+          <label><input type="radio" name="lay-mode" value="cell"> ① 칸 그리기 (첫 칸 → 필요하면 먼 칸 하나 더)</label>
+          <label><input type="radio" name="lay-mode" value="sequence"> ② 열 따라 긋기 (1번부터 순서대로)</label>
           <label><input type="radio" name="lay-mode" value="edit"> 칸 클릭: 번호 넣기·고치기</label>
-          <label><input type="radio" name="lay-mode" value="sequence"> 열 따라 긋기 (1번부터 순서대로)</label>
-          <label><input type="radio" name="lay-mode" value="cell"> 칸 하나 그려서 격자 맞추기</label>
+          <label class="muted"><input type="radio" name="lay-mode" value="region"> (실험) 영역으로 자동 찾기</label>
         </fieldset>
         <div id="lay-stroke-box" class="lay-box" hidden>
           <strong>열 따라 긋기</strong>
@@ -305,7 +305,7 @@
           <label class="check check-inline" title="칸을 넣고 뺄 때 정한 순서대로 번호를 다시 매김. 번호를 직접 고치면 꺼짐"><input id="lay-auto" type="checkbox" checked> 칸을 넣고 뺄 때 번호 자동 매기기</label>
           <div class="btn-row tight">
             <button id="lay-renumber" class="btn btn-small">번호 다시 매기기</button>
-            <button id="lay-redetect" class="btn btn-small btn-ghost">다시 인식</button>
+            <button id="lay-redetect" class="btn btn-small btn-ghost">첫 칸부터 다시</button>
             <button id="lay-clear" class="btn btn-small btn-ghost">번호 모두 지우기</button>
           </div>
         </div>

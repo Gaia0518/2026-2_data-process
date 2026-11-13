@@ -195,12 +195,14 @@
 
   // 번호 칸들은 한 덩어리로 붙어 있다 → 가장 진한 칸에서 시작해, 이웃한 칸 중 진한 칸을 하나씩 붙여 전체 도엽 수만큼 고름
   // (대구 시가지 정답 68칸으로 비교: 진한 순 48칸 → 연결 성장 53칸 일치)
-  function proposeCells(scores, total, order) {
+  function proposeCells(scores, total, order, seedCell) {
     const key = (r, c) => r + ',' + c;
     const sc = new Map(scores.map((x) => [key(x.row, x.col), x]));
     const sorted = scores.slice().sort((a, b) => b.score - a.score);
     const sel = new Map();
-    if (sorted.length) sel.set(key(sorted[0].row, sorted[0].col), sorted[0]);
+    const seed = seedCell && sc.get(key(seedCell.row, seedCell.col));
+    if (seed) sel.set(key(seed.row, seed.col), seed);
+    else if (sorted.length) sel.set(key(sorted[0].row, sorted[0].col), sorted[0]);
     while (sel.size < Math.min(total, scores.length)) {
       let best = null;
       for (const x of sel.values()) {
@@ -241,7 +243,7 @@
     lastScores = null;
     $('lay-total').value = (work && work.total) || Math.max(App.mapSheets().length, 1);
     $('lay-order').value = (work && work.order) || 'col-rtl';
-    setMode(work ? 'edit' : 'region');
+    setMode(work ? 'edit' : 'cell');
     $('layout-dialog').showModal();
     requestAnimationFrame(() => { fit(); render(); });
   };
@@ -297,7 +299,9 @@
   function fit() {
     const s0 = layoutImg();
     const r = canvas.parentElement.getBoundingClientRect();
-    const target = work ? { x: work.x0, y: work.y0, w: work.cw * work.cols, h: work.ch * work.rows } : { x: 0, y: 0, w: s0.w, h: s0.h };
+    const target = work && work.anchor
+      ? { x: work.anchor.x - work.cw * 5, y: work.anchor.y - work.ch * 5, w: work.cw * 11, h: work.ch * 11 } // 그린 칸 주변
+      : work ? { x: work.x0, y: work.y0, w: work.cw * work.cols, h: work.ch * work.rows } : { x: 0, y: 0, w: s0.w, h: s0.h };
     const pad = work ? 1.15 : 1.0;
     lv.zoom = Math.min(r.width / (target.w * pad), r.height / (target.h * pad));
     lv.ox = r.width / 2 - (target.x + target.w / 2) * lv.zoom;
@@ -427,10 +431,12 @@
     $('lay-apply').disabled = !has || !work.cells.length;
     $('lay-apply-arrange').disabled = !has || !work.cells.length;
     const hint = {
-      region: '0번 원도에서 배치도 부분을 드래그해 사각형으로 감싸세요. 놓으면 칸과 번호를 자동으로 찾습니다.',
-      cell: '배치도의 칸 하나를 정확히 드래그하세요. 그 크기로 격자를 다시 맞춥니다.',
+      region: '(실험) 번호가 적힌 칸들 전체를 딱 맞게 감싸도록 드래그하세요. 바깥 글씨가 섞이거나 전체 도엽 수가 틀리면 칸 크기가 틀릴 수 있습니다.',
+      cell: work && work.anchor && !work.refined
+        ? '격자가 번호와 어긋나면: 첫 칸에서 멀리 떨어진(가로·세로로 3칸 이상) 칸 하나를 더 그리세요. 두 칸 사이 거리로 칸 크기를 정확히 맞춥니다.'
+        : '① 배치도에서 번호 하나가 들어 있는 칸(선으로 둘러싼 사각형) 하나를 모서리에서 모서리까지 드래그하세요. 확대(휠)해서 그리면 더 정확합니다. 그 크기에 맞춰 격자 전체를 찾습니다.',
       edit: '클릭: 칸 넣기·선택 · 빈 칸에서 끌기: 여러 칸 넣기 · 번호 칸에서 끌기: 여러 칸 빼기 · Delete: 선택한 칸 빼기 · 화면 이동: 오른쪽 버튼 끌기 또는 Shift+끌기',
-      sequence: `번호 순서대로 열마다 첫 칸에서 끝 칸까지 그으세요 (예: 오른쪽 열부터, 위 → 아래). 클릭하면 한 칸씩. 다음 번호: ${seqNext} / ${work ? work.total : ''} · Backspace: 마지막 긋기 취소 · 화면 이동: 오른쪽 버튼 끌기`,
+      sequence: `${work && work.anchor && !work.refined ? '(격자가 어긋나 보이면 ①을 다시 고르고 멀리 떨어진 칸을 하나 더 그리세요) ' : ''}번호 순서대로 열마다 첫 칸에서 끝 칸까지 그으세요 (예: 오른쪽 열부터, 위 → 아래). 클릭하면 한 칸씩. 다음 번호: ${seqNext} / ${work ? work.total : ''} · Backspace: 마지막 긋기 취소 · 화면 이동: 오른쪽 버튼 끌기`,
     }[mode];
     $('lay-hint').textContent = hint;
     if (!has) return;
@@ -498,24 +504,145 @@
   }
 
   // 칸 하나를 그려 격자 크기·위치를 다시 맞춤 → 번호 칸도 다시 제안
-  async function regridFromCell(c) {
-    const s0 = layoutImg();
-    const region = work && work.region ? work.region : { x: work.x0, y: work.y0, w: work.cw * work.cols, h: work.ch * work.rows };
-    let x0 = c.x, y0 = c.y;
-    while (x0 - c.w > region.x - c.w * 0.5) x0 -= c.w;
-    while (y0 - c.h > region.y - c.h * 0.5) y0 -= c.h;
-    const cols = Math.max(1, Math.round((region.x + region.w - x0) / c.w));
-    const rows = Math.max(1, Math.round((region.y + region.h - y0) / c.h));
-    work = { ...work, x0, y0, cw: c.w, ch: c.h, cols, rows };
-    // 새 격자로 번호 자리 잉크를 다시 계산
-    const img = await readGray(s0, region);
-    const { ink } = inkMap(img);
-    const scores = cellScores(work, ink, img, region);
-    work.cells = proposeCells(scores, work.total, work.order);
+  /* ---------- 칸 하나에서 격자 찾기 (기본 방식) ----------
+   * 사용자가 그린 칸 하나의 크기 ±15% 안에서만 칸 크기·위치를 찾는다 → 2배·절반 크기로 틀리지 않음.
+   * 점수 = 칸 경계에 선이 있는 정도 + 칸 한가운데에 번호(진한 빨강/검정)가 있는 정도
+   * (남산정: 칸 경계는 옅은 갈색 선, 그 아래에 비슷한 색의 종이 모눈이 1/5 간격으로 깔려 있음)
+   */
+  function lineAndNumberMaps(img) {
+    const { W, H, data } = img;
+    const n = W * H;
+    const dark = new Float32Array(n), rg = new Float32Array(n);
+    let sumAbs = 0;
+    for (let i = 0; i < n; i++) {
+      dark[i] = Math.max(0, 220 - (data[i * 4] + data[i * 4 + 1] + data[i * 4 + 2]) / 3);
+      rg[i] = data[i * 4] - data[i * 4 + 1];
+      sumAbs += Math.abs(rg[i]);
+    }
+    const color = sumAbs / n > 4;
+    let num = dark;
+    if (color) {
+      const p90 = Float32Array.from(rg).sort()[Math.floor(n * 0.9)];
+      num = rg.map((v) => Math.max(0, v - p90)); // 진한 빨강 = 번호
+      // 번호(세로로 긴 빨간 막대)를 칸 경계선으로 착각하지 않도록, 선을 셀 때는 진한 빨강을 뺌
+      for (let i = 0; i < n; i++) if (rg[i] > p90) dark[i] = 0;
+    }
+    // 선: 열(행)마다 진하기의 '중앙값'을 씀. 칸 경계선은 종이 모눈보다 진하고 위아래로 끝까지 이어지므로 중앙값이 높고,
+    //     세로 글씨나 번호처럼 일부에만 있는 진한 획은 중앙값에 거의 영향을 주지 않음
+    const lx = new Float32Array(W), ly = new Float32Array(H), nx = new Float32Array(W), ny = new Float32Array(H);
+    const col = new Float32Array(H), row = new Float32Array(W);
+    const med3 = (get, len, out, other) => {
+      for (let a = 0; a < len; a++) {
+        for (let b = 0; b < other.length; b++) {
+          // 선이 1px 기울어 있어도 잡히도록 이웃 1px 중 최댓값
+          other[b] = Math.max(get(a - 1, b), get(a, b), get(a + 1, b));
+        }
+        out[a] = Float32Array.from(other).sort()[other.length >> 1];
+      }
+    };
+    med3((x, y) => (x < 0 || x >= W ? 0 : dark[y * W + x]), W, lx, col);
+    med3((y, x) => (y < 0 || y >= H ? 0 : dark[y * W + x]), H, ly, row);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const v = num[y * W + x]; nx[x] += v; ny[y] += v; }
+    return { lx, ly, nx, ny, num, color };
+  }
+  function std(a) { let m = 0; for (const v of a) m += v; m /= a.length; let s = 0; for (const v of a) s += (v - m) ** 2; return Math.sqrt(s / a.length) + 1e-6; }
+  // 한 방향(가로 또는 세로)의 칸 크기·위치: P0(그린 크기), e0(그린 칸의 시작 경계)
+  function fitAxis(lp, np, P0, e0) {
+    const sl = std(lp), sn = std(np);
+    let best = null;
+    const S_ = (App.gridParams && App.gridParams.S) || 0.08, NW = (App.gridParams && App.gridParams.NW) || 2;
+    for (let P = P0 * (1 - S_); P <= P0 * (1 + S_); P += 0.25) {
+      for (let ph = e0 - P * 0.15; ph <= e0 + P * 0.15; ph += 0.5) {
+        const line = bandMean(lp, P, ph, -0.03, 0.03) - bandMean(lp, P, ph, 0.2, 0.8);
+        const num = bandMean(np, P, ph, 0.35, 0.65) - bandMean(np, P, ph, -0.15, 0.15);
+        const sc = line / sl + NW * num / sn;
+        if (!best || sc > best.sc) best = { sc, P, ph };
+      }
+    }
+    return best;
+  }
+
+  // 두 번째 칸: 첫 칸과의 거리를 칸 수로 나눠 칸 크기를 정확히 다시 계산
+  function refineWithSecondCell(c2) {
+    const a = work.anchor;
+    const ax = a.x + a.w / 2, ay = a.y + a.h / 2, bx = c2.x + c2.w / 2, by = c2.y + c2.h / 2;
+    const nx = Math.round((bx - ax) / work.cw), ny = Math.round((by - ay) / work.ch);
+    if (Math.abs(nx) < 2 && Math.abs(ny) < 2) {
+      App.toast('첫 칸과 2칸 이상 떨어진 칸을 그려야 크기를 맞출 수 있습니다. 가로·세로로 멀리 떨어진 칸일수록 정확합니다.', 6000);
+      return false;
+    }
+    if (Math.abs(nx) >= 2) work.cw = Math.abs(bx - ax) / Math.abs(nx);
+    if (Math.abs(ny) >= 2) work.ch = Math.abs(by - ay) / Math.abs(ny);
+    // 첫 칸 중심이 칸 한가운데 오도록 격자 위치를 다시 잡음
+    const area = work.region;
+    let x0 = ax - work.cw / 2, y0 = ay - work.ch / 2;
+    while (x0 - work.cw > area.x - work.cw * 0.5) x0 -= work.cw;
+    while (y0 - work.ch > area.y - work.ch * 0.5) y0 -= work.ch;
+    const shiftC = Math.round((work.x0 - x0) / work.cw), shiftR = Math.round((work.y0 - y0) / work.ch);
+    work.x0 = x0; work.y0 = y0;
+    work.cols = Math.max(1, Math.round((area.x + area.w - x0) / work.cw));
+    work.rows = Math.max(1, Math.round((area.y + area.h - y0) / work.ch));
+    const mv = (list) => list && list.forEach((x) => { x.col += shiftC; x.row += shiftR; });
+    mv(work.cells); mv(work.guide);
+    work.refined = { nx, ny };
     App.logOp('layoutEdit');
-    setMode('edit');
+    App.toast(`두 칸 사이 ${Math.abs(nx)}칸·${Math.abs(ny)}줄로 칸 크기를 ${work.cw.toFixed(1)}×${work.ch.toFixed(1)}px로 맞췄습니다.`);
+    return true;
+  }
+  App._refineWithSecondCell = (c2) => refineWithSecondCell(c2); // 시험용
+
+  async function gridFromCell(c) {
+    // 이미 첫 칸으로 격자를 찾았으면, 새로 그린 칸은 '두 번째 칸'으로 써서 크기를 맞춤
+    if (work && work.anchor && !work.refined && mode === 'cell') {
+      if (refineWithSecondCell(c)) { setMode('sequence'); fit(); render(); }
+      return;
+    }
+    const s0 = layoutImg();
+    const total = Math.max(1, parseInt($('lay-total').value, 10) || App.mapSheets().length || 1);
+    // 그린 칸 주변 ±7칸을 분석 (이미지 밖은 잘라냄)
+    const R = (App.gridParams && App.gridParams.R) || 3;
+    const area = {
+      x: Math.max(0, c.x - c.w * R), y: Math.max(0, c.y - c.h * R),
+    };
+    area.w = Math.min(s0.w, c.x + c.w * (R + 1)) - area.x;
+    area.h = Math.min(s0.h, c.y + c.h * (R + 1)) - area.y;
+    $('lay-hint').textContent = '칸 크기와 위치를 맞추는 중…';
+    await new Promise((r) => setTimeout(r));
+    const img = await readGray(s0, area);
+    const k = img.k;
+    const m = lineAndNumberMaps(img);
+    const fx = fitAxis(m.lx, m.nx, c.w * k, (c.x - area.x) * k);
+    const fy = fitAxis(m.ly, m.ny, c.h * k, (c.y - area.y) * k);
+    const cw = fx.P / k, ch = fy.P / k;
+    let x0 = area.x + fx.ph / k, y0 = area.y + fy.ph / k;
+    while (x0 - cw > area.x - cw * 0.5) x0 -= cw;
+    while (y0 - ch > area.y - ch * 0.5) y0 -= ch;
+    const cols = Math.max(1, Math.round((area.x + area.w - x0) / cw));
+    const rows = Math.max(1, Math.round((area.y + area.h - y0) / ch));
+    const order = $('lay-order').value;
+    // 두 번째 칸으로 넓은 범위를 다룰 수 있도록 격자는 0번 이미지 전체로 넓힘
+    const full = { x: 0, y: 0, w: s0.w, h: s0.h };
+    while (x0 - cw > -cw * 0.5) x0 -= cw;
+    while (y0 - ch > -ch * 0.5) y0 -= ch;
+    const fcols = Math.max(1, Math.round((s0.w - x0) / cw)), frows = Math.max(1, Math.round((s0.h - y0) / ch));
+    work = { x0, y0, cw, ch, cols: fcols, rows: frows, total, order, region: full, anchor: { ...c }, cells: [] };
+    void cols; void rows;
+    // 번호 칸 제안: 그린 칸에서 시작해 번호가 진한 이웃 칸을 이어 붙임 (안내용)
+    // 번호 칸 제안은 분석한 범위 안에서만 (범위 밖 칸은 점수 0)
+    const scores = cellScores(work, m.num, img, area).map((x) => {
+      const cx = x0 + (x.col + 0.5) * cw, cy = y0 + (x.row + 0.5) * ch;
+      return cx < area.x || cy < area.y || cx > area.x + area.w || cy > area.y + area.h ? { ...x, score: 0 } : x;
+    });
+    const seed = { row: Math.floor((c.y + c.h / 2 - y0) / ch), col: Math.floor((c.x + c.w / 2 - x0) / cw) };
+    work.cells = proposeCells(scores, total, order, seed);
+    App.logOp('layoutDetect');
+    setMode('sequence');
+    fit();
     render();
   }
+  async function regridFromCell(c) { return gridFromCell(c); }
+  App._gridFromCell = gridFromCell; // 시험용
+
 
   function clickCell(cell) {
     if (!cell) { selected = null; return render(); }
@@ -729,10 +856,7 @@
       const v = parseInt($('lay-total').value, 10);
       if (work && v > 0) { work.total = v; render(); }
     });
-    $('lay-redetect').addEventListener('click', () => {
-      if (work && work.region) runDetect(work.region);
-      else setMode('region');
-    });
+    $('lay-redetect').addEventListener('click', () => { work = null; selected = null; setMode('cell'); fit(); render(); });
     $('lay-clear').addEventListener('click', () => { if (work) { work.cells = []; selected = null; render(); } });
     const dims = (dc, dr) => { if (!work) return; work.cols = Math.max(1, work.cols + dc); work.rows = Math.max(1, work.rows + dr); work.cells = work.cells.filter((c) => c.col < work.cols && c.row < work.rows); render(); };
     $('lay-cols').addEventListener('change', () => dims(parseInt($('lay-cols').value, 10) - work.cols, 0));
