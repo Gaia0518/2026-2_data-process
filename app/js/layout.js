@@ -41,7 +41,7 @@
   /* ---------- 자동 인식 ---------- */
   // 영역 픽셀 읽기 (계산은 긴 변 800px 이하로 줄여서)
   async function readGray(s, box) {
-    const k = Math.min(1, 800 / Math.max(box.w, box.h));
+    const k = Math.min(1, 1200 / Math.max(box.w, box.h));
     const bmp = await createImageBitmap(s.file, Math.round(box.x), Math.round(box.y), Math.round(box.w), Math.round(box.h));
     const W = Math.max(8, Math.round(box.w * k)), H = Math.max(8, Math.round(box.h * k));
     const c = document.createElement('canvas');
@@ -102,13 +102,34 @@
     return { score: best / (median(prof) + 1e-3), ph: bestPh };
   }
 
-  // 번호는 칸 한가운데에 있다 → 칸 중심 띠에 잉크가 더 많은 쪽으로 위상을 고름
-  function centerInk(rawProf, P, ph) {
+  // 번호는 칸 한가운데에 있다 → 칸 가운데 띠의 잉크가 칸 경계 띠보다 가장 많은 위상을 고름
+  // (대구처럼 칸 테두리가 종이 모눈선과 겹쳐 선만으로는 위치를 알 수 없는 배치도 대응)
+  function bandMean(prof, P, ph, from, to) {
     let sum = 0, cnt = 0;
-    for (let x = ph + P / 2; x < rawProf.length; x += P) {
-      for (let d = -P * 0.18; d <= P * 0.18; d += 1) { sum += rawProf[Math.round(x + d)] || 0; cnt++; }
+    for (let x = ph; x < prof.length + P; x += P) {
+      for (let d = from * P; d <= to * P; d += 1) {
+        const i = Math.round(x + d);
+        if (i >= 0 && i < prof.length) { sum += prof[i]; cnt++; }
+      }
     }
     return cnt ? sum / cnt : 0;
+  }
+  function bestCenterPhase(prof, P) {
+    let best = -Infinity, bestPh = 0;
+    for (let ph = 0; ph < P; ph += 0.5) {
+      const v = bandMean(prof, P, ph, 0.32, 0.68) - bandMean(prof, P, ph, -0.12, 0.12);
+      if (v > best) { best = v; bestPh = ph; }
+    }
+    return bestPh;
+  }
+  // 칸 크기를 0.1px 단위로 다시 맞춤 (열·행을 따라 오차가 쌓이지 않도록)
+  function refinePeriod(prof, P) {
+    let best = { score: -1, P };
+    for (let q = P - 1.5; q <= P + 1.5; q += 0.1) {
+      const r = periodScore(prof, q);
+      if (r.score > best.score) best = { score: r.score, P: q };
+    }
+    return best.P;
   }
 
   App.detectLayout = async (layoutSheet, box, total, aspect) => {
@@ -138,9 +159,10 @@
       if (!best || score > best.score) best = { score, P, Q, phx: sx.ph, phy: sy.ph };
     }
     if (!best) return null;
-    let { P, Q, phx, phy } = best;
-    if (centerInk(rawX, P, phx + P / 2) > centerInk(rawX, P, phx)) phx = (phx + P / 2) % P;
-    if (centerInk(rawY, Q, phy + Q / 2) > centerInk(rawY, Q, phy)) phy = (phy + Q / 2) % Q;
+    let { P, Q } = best;
+    P = refinePeriod(cx, P);
+    Q = refinePeriod(cy, Q);
+    const phx = bestCenterPhase(rawX, P), phy = bestCenterPhase(rawY, Q);
 
     // 영역을 덮는 격자 (0번 원본 px)
     const cw = P / k, ch = Q / k;
@@ -171,10 +193,27 @@
     return out;
   }
 
-  // 잉크가 많은 칸부터 전체 도엽 수만큼 고르고, 정한 순서대로 번호를 매김
+  // 번호 칸들은 한 덩어리로 붙어 있다 → 가장 진한 칸에서 시작해, 이웃한 칸 중 진한 칸을 하나씩 붙여 전체 도엽 수만큼 고름
+  // (대구 시가지 정답 68칸으로 비교: 진한 순 48칸 → 연결 성장 53칸 일치)
   function proposeCells(scores, total, order) {
-    const picked = scores.slice().sort((a, b) => b.score - a.score).slice(0, total);
-    return numberCells(picked.map(({ row, col }) => ({ row, col })), order);
+    const key = (r, c) => r + ',' + c;
+    const sc = new Map(scores.map((x) => [key(x.row, x.col), x]));
+    const sorted = scores.slice().sort((a, b) => b.score - a.score);
+    const sel = new Map();
+    if (sorted.length) sel.set(key(sorted[0].row, sorted[0].col), sorted[0]);
+    while (sel.size < Math.min(total, scores.length)) {
+      let best = null;
+      for (const x of sel.values()) {
+        for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const k = key(x.row + dr, x.col + dc);
+          const n = sc.get(k);
+          if (n && !sel.has(k) && (!best || n.score > best.score)) best = n;
+        }
+      }
+      if (!best) break;
+      sel.set(key(best.row, best.col), best);
+    }
+    return numberCells([...sel.values()].map(({ row, col }) => ({ row, col })), order);
   }
   function numberCells(cells, order) {
     return cells.slice().sort(ORDERS[order] || ORDERS['col-rtl']).map((c, i) => ({ row: c.row, col: c.col, no: i + 1 }));
@@ -210,7 +249,7 @@
   function setMode(m) {
     mode = m;
     document.querySelectorAll('[name="lay-mode"]').forEach((el) => (el.checked = el.value === m));
-    if (m === 'sequence') seqNext = 1;
+    if (m === 'sequence') { seqNext = 1; $('lay-auto').checked = false; }
     render();
   }
 
@@ -325,7 +364,7 @@
     const hint = {
       region: '0번 원도에서 배치도 부분을 드래그해 사각형으로 감싸세요. 놓으면 칸과 번호를 자동으로 찾습니다.',
       cell: '배치도의 칸 하나를 정확히 드래그하세요. 그 크기로 격자를 다시 맞춥니다.',
-      edit: '빈 칸 클릭: 빠진 번호 넣기 · 번호 칸 클릭: 선택 (Delete로 빼기, 오른쪽에서 번호 고치기) · 끌기: 화면 이동',
+      edit: '클릭: 칸 넣기·선택 · 빈 칸에서 끌기: 여러 칸 넣기 · 번호 칸에서 끌기: 여러 칸 빼기 · Delete: 선택한 칸 빼기 · 화면 이동: 오른쪽 버튼 끌기 또는 Shift+끌기',
       sequence: `1번부터 순서대로 칸을 클릭하세요. 다음 번호: ${seqNext}`,
     }[mode];
     $('lay-hint').textContent = hint;
@@ -380,6 +419,7 @@
       return;
     }
     lastScores = { scores: g.scores, key: `${g.x0},${g.y0},${g.cw},${g.ch}` };
+    $('lay-auto').checked = true;
     work = {
       x0: g.x0, y0: g.y0, cw: g.cw, ch: g.ch, cols: g.cols, rows: g.rows, total,
       order: $('lay-order').value, region: box,
@@ -428,14 +468,36 @@
       const no = miss.length ? miss[0] : work.cells.reduce((m, c) => Math.max(m, c.no), 0) + 1;
       work.cells.push({ row: cell.row, col: cell.col, no });
       selected = cell;
+      autoRenumber();
     }
     render();
+  }
+
+  // '번호 자동 매기기'가 켜져 있으면 칸을 넣고 뺄 때마다 순서대로 다시 번호를 매김
+  function autoRenumber() {
+    if ($('lay-auto').checked) work.cells = numberCells(work.cells, work.order);
+  }
+
+  // 끌어서 칠하기: 칸을 넣거나 뺌 (번호는 손을 뗄 때 한꺼번에)
+  function paintCell(cell, op) {
+    if (!cell) return;
+    const ex = findCell(cell.row, cell.col);
+    if (op === 'remove' && ex) work.cells = work.cells.filter((c) => c !== ex);
+    if (op === 'add' && !ex) work.cells.push({ row: cell.row, col: cell.col, no: 0 });
+    render();
+  }
+  function autoRenumberOrFill() {
+    if ($('lay-auto').checked) return autoRenumber();
+    // 자동 매기기가 꺼져 있으면 새 칸에만 빠진 번호를 차례로 넣음
+    const miss = missingNumbers();
+    for (const c of work.cells) if (!c.no) c.no = miss.length ? miss.shift() : work.cells.reduce((m, x) => Math.max(m, x.no), 0) + 1;
   }
 
   function removeSelected() {
     if (!selected) return;
     work.cells = work.cells.filter((c) => !(c.row === selected.row && c.col === selected.col));
     selected = null;
+    autoRenumber();
     render();
   }
 
@@ -507,8 +569,12 @@
       canvas.setPointerCapture(e.pointerId);
       const r = canvas.getBoundingClientRect();
       const sx = e.clientX - r.left, sy = e.clientY - r.top;
-      const pan = e.button !== 0 || mode === 'edit' || mode === 'sequence';
-      drag = { sx, sy, ox: lv.ox, oy: lv.oy, moved: false, pan, start: toImg(sx, sy) };
+      const start = toImg(sx, sy);
+      const pan = e.button !== 0 || mode === 'sequence' || (mode === 'edit' && (e.shiftKey || !cellAt(...start)));
+      // 칸 클릭 모드에서 칸 위를 끌면: 빈 칸에서 시작하면 여러 칸 넣기, 번호 칸에서 시작하면 여러 칸 빼기
+      const c0 = mode === 'edit' && !pan ? cellAt(...start) : null;
+      const paint = c0 ? (findCell(c0.row, c0.col) ? 'remove' : 'add') : null;
+      drag = { sx, sy, ox: lv.ox, oy: lv.oy, moved: false, pan, start, paint, c0 };
     });
     canvas.addEventListener('pointermove', (e) => {
       if (!drag) return;
@@ -516,7 +582,10 @@
       const sx = e.clientX - r.left, sy = e.clientY - r.top;
       if (Math.hypot(sx - drag.sx, sy - drag.sy) > 4) drag.moved = true;
       if (!drag.moved) return;
-      if (drag.pan || (e.buttons & 6)) {
+      if (drag.paint) {
+        if (!drag.painted) { drag.painted = true; paintCell(drag.c0, drag.paint); }
+        paintCell(cellAt(...toImg(sx, sy)), drag.paint);
+      } else if (drag.pan || (e.buttons & 6)) {
         lv.ox = drag.ox + sx - drag.sx;
         lv.oy = drag.oy + sy - drag.sy;
       } else {
@@ -539,6 +608,7 @@
         return;
       }
       draft = null;
+      if (d.paint && d.moved) { autoRenumberOrFill(); App.logOp('layoutEdit'); return render(); }
       if (!d.moved && (mode === 'edit' || mode === 'sequence') && e.button === 0) clickCell(cellAt(x, y));
       else render();
     });
@@ -567,6 +637,7 @@
       if (!work) return;
       work.order = $('lay-order').value;
       work.cells = numberCells(work.cells, work.order);
+      $('lay-auto').checked = true;
       render();
     });
     $('lay-total').addEventListener('change', () => {
@@ -604,6 +675,7 @@
       const c = selected && findCell(selected.row, selected.col);
       const v = parseInt($('lay-sel-no').value, 10);
       if (!c || !(v > 0) || v === c.no) return;
+      $('lay-auto').checked = false; // 번호를 직접 고치면 자동 매기기를 끔
       // 이미 다른 칸에 있는 번호면 두 칸의 번호를 맞바꿈
       const other = work.cells.find((x) => x !== c && x.no === v);
       if (other) other.no = c.no;
