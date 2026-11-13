@@ -96,6 +96,9 @@
     return cssCache[name];
   }
 
+  // 겹치기 방식: 어둡게 = 겹친 곳에서 더 어두운 값만 남김 (흑백 스캔도 검게 누적되지 않음)
+  App.BLEND_OPS = { darken: 'darken', multiply: 'multiply', normal: 'source-over' };
+
   App.drawSheet = (c, s, img, imgScale) => {
     // c: 2D context (월드 좌표계로 설정된 상태), imgScale: 원본 px → img px 비율
     const t = s.transform;
@@ -105,7 +108,9 @@
     c.rotate((t.rotation * Math.PI) / 180);
     c.scale(t.scale, t.scale);
     c.globalAlpha = s.display.opacity;
-    c.globalCompositeOperation = s.display.blend === 'multiply' ? 'multiply' : 'source-over';
+    c.globalCompositeOperation = App.BLEND_OPS[s.display.blend] || 'source-over';
+    // 종이 밝게: 바랜 종이 색(paper)이 흰색이 되도록 밝기를 올림
+    if (s.display.whiten && s.paper) c.filter = `brightness(${Math.min(3, 255 / s.paper).toFixed(3)})`;
     if (s.frame && s.frame.clip) {
       // 도곽 바깥(여백)은 그리지 않음
       const ox = s.crop.left + w / 2, oy = s.crop.top + h / 2;
@@ -130,6 +135,24 @@
 
     ctx.setTransform(dpr * view.zoom, 0, 0, dpr * view.zoom, dpr * view.ox, dpr * view.oy);
     ctx.imageSmoothingQuality = 'high';
+
+    // 배치표의 사각 틀 (원도가 없는 칸도 보이도록 원도보다 먼저 그림)
+    const frames = App.layoutFrames ? App.layoutFrames() : [];
+    if (frames.length) {
+      ctx.save();
+      ctx.lineWidth = 1.5 / view.zoom;
+      ctx.setLineDash([8 / view.zoom, 6 / view.zoom]);
+      ctx.strokeStyle = getVar('--accent');
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      for (const f of frames) { ctx.fillRect(f.x, f.y, f.w, f.h); ctx.strokeRect(f.x, f.y, f.w, f.h); }
+      ctx.setLineDash([]);
+      ctx.fillStyle = getVar('--accent');
+      ctx.font = `600 ${Math.min(frames[0].h * 0.12, 40 / view.zoom)}px system-ui, sans-serif`;
+      ctx.textBaseline = 'top';
+      for (const f of frames) ctx.fillText(`${f.no}호`, f.x + f.w * 0.03, f.y + f.h * 0.03);
+      ctx.restore();
+    }
+
     for (const id of S.zOrder) {
       const s = App.byId(id);
       if (!s || !s.display.visible) continue;
@@ -214,8 +237,15 @@
 
   App.fitView = () => {
     const sheets = App.mapSheets().filter((s) => s.display.visible);
-    const b = App.bounds(sheets);
+    let b = App.bounds(sheets);
+    // 배치표의 사각 틀까지 포함해서 맞춤
+    for (const f of App.layoutFrames ? App.layoutFrames() : []) {
+      b = b || { minX: f.x, minY: f.y, maxX: f.x + f.w, maxY: f.y + f.h };
+      b.minX = Math.min(b.minX, f.x); b.minY = Math.min(b.minY, f.y);
+      b.maxX = Math.max(b.maxX, f.x + f.w); b.maxY = Math.max(b.maxY, f.y + f.h);
+    }
     if (!b) return App.requestDraw();
+    b.w = b.maxX - b.minX; b.h = b.maxY - b.minY;
     const r = canvas.getBoundingClientRect();
     const pad = 48;
     view.zoom = App.clamp(Math.min((r.width - pad * 2) / b.w, (r.height - pad * 2) / b.h), 0.01, 8);

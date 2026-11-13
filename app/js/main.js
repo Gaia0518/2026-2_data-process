@@ -63,6 +63,7 @@
     App.initPanel();
     App.initLayoutViewer();
     App.initFrame();
+    App.initLayout();
 
     App.on('change', () => { renderAll(); App.autosave(); });
     App.on('select', () => { App.renderList(); App.renderPanel(); App.requestDraw(); });
@@ -112,7 +113,8 @@
     $('btn-arrange').addEventListener('click', () => {
       if (!App.mapSheets().length) return;
       App.checkpoint();
-      App.autoArrange(null);
+      // 확인한 배치(배치도 인식)가 있으면 그대로, 없으면 파일 순서대로
+      if (!App.arrangeByLayout()) App.autoArrange(null);
       App.logOp('arrange');
       App.fitView();
       App.emit('change');
@@ -129,6 +131,12 @@
     $('btn-blend-all').addEventListener('change', (e) => {
       App.checkpoint();
       for (const s of App.mapSheets()) s.display.blend = e.target.value;
+      App.logOp('display');
+      App.emit('change');
+    });
+    $('btn-whiten-all').addEventListener('change', (e) => {
+      App.checkpoint();
+      for (const s of App.mapSheets()) s.display.whiten = e.target.checked;
       App.logOp('display');
       App.emit('change');
     });

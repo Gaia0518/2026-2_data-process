@@ -153,12 +153,18 @@
               },
               "blend": {
                 "enum": [
+                  "darken",
                   "multiply",
                   "normal"
-                ]
+                ],
+                "description": "darken(어둡게, 기본) · multiply(곱하기) · normal"
               },
               "visible": {
                 "type": "boolean"
+              },
+              "whiten": {
+                "type": "boolean",
+                "description": "종이 밝게: paper 밝기를 흰색으로"
               }
             }
           },
@@ -188,6 +194,10 @@
                 "description": "도곽 바깥 여백을 그리지 않음"
               }
             }
+          },
+          "paper": {
+            "type": "number",
+            "description": "종이 밝기 추정값(0~255)"
           }
         }
       }
@@ -228,6 +238,65 @@
         },
         "h": {
           "type": "number"
+        }
+      }
+    },
+    "layoutGrid": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "description": "검토한 배치도 (0번 원본 px 위의 격자). cells의 no는 도엽 번호이며, 원도와는 도면 번호(없으면 파일 순서)로 짝지음",
+      "properties": {
+        "x0": {
+          "type": "number"
+        },
+        "y0": {
+          "type": "number"
+        },
+        "cw": {
+          "type": "number"
+        },
+        "ch": {
+          "type": "number"
+        },
+        "cols": {
+          "type": "integer"
+        },
+        "rows": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer",
+          "description": "전체 도엽 수"
+        },
+        "order": {
+          "enum": [
+            "col-rtl",
+            "col-ltr",
+            "row-ltr",
+            "row-rtl"
+          ]
+        },
+        "offset": {
+          "type": "object"
+        },
+        "cells": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "row": {
+                "type": "integer"
+              },
+              "col": {
+                "type": "integer"
+              },
+              "no": {
+                "type": "integer"
+              }
+            }
+          }
         }
       }
     }

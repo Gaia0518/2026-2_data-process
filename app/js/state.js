@@ -12,6 +12,7 @@
     selectedId: null,
     pendingProject: null, // 이미지보다 먼저 불러온 project.json
     frameSize: null, // 기준 도곽 크기 {w, h} (월드 px). 처음 지정한 도곽으로 정해짐
+    layout: null, // 확인한 배치 (0번 위 격자와 칸 번호) — layout.js
     log: { startedAt: null, ops: {} },
   });
 
@@ -77,6 +78,7 @@
     return JSON.stringify({
       project: S.project,
       frameSize: S.frameSize,
+      layout: S.layout,
       order: S.sheets.map((s) => s.id),
       zOrder: S.zOrder.slice(),
       sheets: S.sheets.map((s) => ({
@@ -90,6 +92,7 @@
     const d = JSON.parse(json);
     S.project = d.project;
     S.frameSize = d.frameSize || null;
+    S.layout = d.layout || null;
     const map = new Map(S.sheets.map((s) => [s.id, s]));
     S.sheets = d.order.map((id) => map.get(id)).filter(Boolean);
     S.zOrder = d.zOrder.filter((id) => map.has(id));
@@ -139,6 +142,7 @@
       project: S.project,
       savedAt: new Date().toISOString(),
       frameSize: S.frameSize,
+      layoutGrid: S.layout,
       layout: layout
         ? { file: App.newName(layout), originalName: layout.originalName, size: [layout.w, layout.h] }
         : null,
@@ -159,6 +163,7 @@
         crop: { ...s.crop },
         frame: s.frame ? { corners: s.frame.corners.map(([x, y]) => [App.round(x, 1), App.round(y, 1)]), clip: s.frame.clip } : null,
         display: { ...s.display },
+        paper: s.paper,
       })),
       log: {
         startedAt: S.log.startedAt,
@@ -174,6 +179,7 @@
     App.checkpoint();
     if (p.project) S.project = p.project;
     if (p.frameSize) S.frameSize = { ...p.frameSize };
+    if (p.layoutGrid) S.layout = JSON.parse(JSON.stringify(p.layoutGrid));
     const pool = S.sheets.slice();
     const take = (entry) => {
       if (!entry) return null;
@@ -206,7 +212,7 @@
         s.crop = { ...e.crop };
         s.frame = e.frame ? { corners: e.frame.corners.map((c) => c.slice()), clip: e.frame.clip !== false } : null;
       }
-      s.display = { opacity: 1, blend: 'multiply', visible: true, ...e.display };
+      s.display = { opacity: 1, blend: 'darken', visible: true, whiten: false, ...e.display };
       ordered.push(s);
     }
     // 프로젝트에 없던 파일은 뒤에 붙임

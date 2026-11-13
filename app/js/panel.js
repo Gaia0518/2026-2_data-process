@@ -48,6 +48,7 @@
     document.getElementById('f-opacity').value = Math.round(s.display.opacity * 100);
     document.getElementById('f-opacity-val').textContent = `${Math.round(s.display.opacity * 100)}%`;
     document.getElementById('f-blend').value = s.display.blend;
+    document.getElementById('f-whiten').checked = !!s.display.whiten;
     document.getElementById('f-visible').checked = s.display.visible;
     App.renderFramePanel(s);
   };
@@ -97,6 +98,8 @@
 
     document.getElementById('f-blend').addEventListener('change', (e) =>
       edit('display', (s) => (s.display.blend = e.target.value)));
+    document.getElementById('f-whiten').addEventListener('change', (e) =>
+      edit('display', (s) => (s.display.whiten = e.target.checked)));
     document.getElementById('f-visible').addEventListener('change', (e) => {
       edit('display', (s) => (s.display.visible = e.target.checked));
       App.renderList();

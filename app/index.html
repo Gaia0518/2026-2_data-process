@@ -60,16 +60,19 @@
       <div class="toolbar">
         <div class="tool-group">
           <label class="inline">열 <input id="arrange-cols" type="number" min="1" max="30" value="" placeholder="자동"></label>
-          <button id="btn-arrange" class="btn btn-small" title="파일 순서대로 격자에 배치 (도곽을 지정했으면 도곽 크기 칸에)">자동 배열</button>
+          <button id="btn-layout-detect" class="btn btn-small" title="0번 배치도에서 도엽 배치를 인식하고 확인·수정">배치도 인식</button>
+          <button id="btn-arrange" class="btn btn-small" title="확인한 배치대로 사각 틀을 놓고 원도를 배열 (배치가 없으면 파일 순서대로)">자동 배열</button>
           <button id="btn-frame-all" class="btn btn-small" title="도곽을 지정하지 않은 도면을 차례로 열기">도곽 지정</button>
         </div>
         <div class="tool-group">
           <label class="inline">겹치기
-            <select id="btn-blend-all">
+            <select id="btn-blend-all" title="어둡게: 겹친 곳에서 더 어두운 쪽만 남김 (흑백 스캔도 검게 누적되지 않음)">
+              <option value="darken">어둡게 (전체)</option>
               <option value="multiply">곱하기 (전체)</option>
               <option value="normal">보통 (전체)</option>
             </select>
           </label>
+          <label class="inline" title="바랜 종이 색을 흰색으로 맞춤"><input id="btn-whiten-all" type="checkbox"> 종이 밝게</label>
           <button id="btn-layout" class="btn btn-small btn-ghost" aria-pressed="false">0번 배치도</button>
           <button id="btn-labels" class="btn btn-small btn-ghost" aria-pressed="true">번호 표시</button>
         </div>
@@ -163,11 +166,13 @@
         <div class="grid2">
           <label class="field"><span>겹치기</span>
             <select id="f-blend">
+              <option value="darken">어둡게</option>
               <option value="multiply">곱하기</option>
               <option value="normal">보통</option>
             </select>
           </label>
           <label class="check"><input id="f-visible" type="checkbox"> 보이기</label>
+          <label class="check check-inline"><input id="f-whiten" type="checkbox"> 종이 밝게</label>
         </div>
         <div class="btn-row">
           <button id="btn-front" class="btn btn-small btn-ghost">맨 앞으로</button>
@@ -234,6 +239,83 @@
     </div>
   </dialog>
 
+  <dialog id="layout-dialog" class="dialog dialog-wide">
+    <div class="frame-head">
+      <div>
+        <h2>배치도 인식 (0번)</h2>
+        <span class="muted">배치도를 자동으로 읽어 칸과 번호를 제안합니다. 확인하고 고친 뒤 적용하세요.</span>
+      </div>
+      <ol class="corner-steps">
+        <li class="corner-step lay-step">① 배치도 영역 선택</li>
+        <li class="corner-step lay-step">② 칸·번호 자동 인식</li>
+        <li class="corner-step lay-step">③ 확인·수정</li>
+      </ol>
+    </div>
+    <div class="lay-main">
+      <div class="frame-body"><canvas id="layout-canvas2"></canvas></div>
+      <aside class="lay-side">
+        <label class="field"><span>전체 도엽 수 (표지의 「○○枚」)</span><input id="lay-total" type="number" min="1" max="999"></label>
+        <fieldset class="lay-modes">
+          <legend>마우스 동작</legend>
+          <label><input type="radio" name="lay-mode" value="region"> 배치도 영역 선택 (자동 인식)</label>
+          <label><input type="radio" name="lay-mode" value="edit"> 칸 클릭: 번호 넣기·고치기</label>
+          <label><input type="radio" name="lay-mode" value="sequence"> 1번부터 순서대로 클릭</label>
+          <label><input type="radio" name="lay-mode" value="cell"> 칸 하나 그려서 격자 맞추기</label>
+        </fieldset>
+        <div id="lay-grid-box" class="lay-box">
+          <div class="grid2">
+            <label class="field"><span>열</span><input id="lay-cols" type="number" min="1"></label>
+            <label class="field"><span>행</span><input id="lay-rows" type="number" min="1"></label>
+          </div>
+          <span id="lay-cellsize" class="muted small"></span>
+          <div class="lay-row"><span class="muted small">격자 밀기</span>
+            <button class="icon-btn" data-lay-shift="-1,0" aria-label="왼쪽">←</button>
+            <button class="icon-btn" data-lay-shift="0,-1" aria-label="위">↑</button>
+            <button class="icon-btn" data-lay-shift="0,1" aria-label="아래">↓</button>
+            <button class="icon-btn" data-lay-shift="1,0" aria-label="오른쪽">→</button>
+          </div>
+          <div class="lay-row"><span class="muted small">한 줄 늘리기</span>
+            <button class="btn btn-small btn-ghost" data-lay-grow="left">왼</button>
+            <button class="btn btn-small btn-ghost" data-lay-grow="top">위</button>
+            <button class="btn btn-small btn-ghost" data-lay-grow="bottom">아래</button>
+            <button class="btn btn-small btn-ghost" data-lay-grow="right">오른</button>
+          </div>
+          <label class="field"><span>번호 매기는 순서</span>
+            <select id="lay-order">
+              <option value="col-rtl">오른쪽 열부터, 위 → 아래</option>
+              <option value="col-ltr">왼쪽 열부터, 위 → 아래</option>
+              <option value="row-ltr">위 행부터, 왼 → 오른</option>
+              <option value="row-rtl">위 행부터, 오른 → 왼</option>
+            </select>
+          </label>
+          <div class="btn-row tight">
+            <button id="lay-renumber" class="btn btn-small">번호 다시 매기기</button>
+            <button id="lay-redetect" class="btn btn-small btn-ghost">다시 인식</button>
+            <button id="lay-clear" class="btn btn-small btn-ghost">번호 모두 지우기</button>
+          </div>
+        </div>
+        <div id="lay-selected" class="lay-box" hidden>
+          <strong id="lay-sel-title"></strong>
+          <div class="lay-row">
+            <label class="inline">번호 <input id="lay-sel-no" type="number" min="1"></label>
+            <button id="lay-sel-remove" class="btn btn-small btn-ghost">칸 빼기</button>
+          </div>
+          <span id="lay-sel-sheet" class="muted small"></span>
+        </div>
+        <p id="lay-summary" class="lay-summary"></p>
+      </aside>
+    </div>
+    <p id="lay-hint" class="frame-info"></p>
+    <div class="frame-foot">
+      <span class="muted small">휠: 확대 · 오른쪽 버튼 끌기: 이동</span>
+      <span class="spacer"></span>
+      <button id="lay-fit" class="btn btn-small btn-ghost">맞춤</button>
+      <button id="lay-cancel" class="btn btn-ghost">취소</button>
+      <button id="lay-apply" class="btn">적용</button>
+      <button id="lay-apply-arrange" class="btn btn-primary">적용 후 자동 배열</button>
+    </div>
+  </dialog>
+
   <div id="toast" class="toast" role="alert" hidden></div>
   <div class="drop-overlay" aria-hidden="true">원도 이미지 또는 project.json을 놓으세요</div>
 
@@ -246,6 +328,7 @@
   <script src="js/canvas.js"></script>
   <script src="js/panel.js"></script>
   <script src="js/frame.js"></script>
+  <script src="js/layout.js"></script>
   <script src="js/export.js"></script>
   <script src="js/main.js"></script>
 </body>

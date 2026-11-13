@@ -20,7 +20,25 @@
     thumb.height = Math.max(1, Math.round(h * tk));
     thumb.getContext('2d').drawImage(preview, 0, 0, thumb.width, thumb.height);
     bmp.close && bmp.close();
-    return { w, h, preview, thumbURL: thumb.toDataURL('image/jpeg', 0.8) };
+    return { w, h, preview, thumbURL: thumb.toDataURL('image/jpeg', 0.8), paper: paperLevel(preview) };
+  }
+
+  // 종이 밝기 추정: 가운데 영역 밝기의 상위 15% 지점 (선·글씨보다 종이가 훨씬 넓으므로)
+  function paperLevel(src) {
+    const k = Math.min(1, 256 / Math.max(src.width, src.height));
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(src.width * k));
+    c.height = Math.max(1, Math.round(src.height * k));
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(src, 0, 0, c.width, c.height);
+    const x0 = Math.round(c.width * 0.2), y0 = Math.round(c.height * 0.2);
+    const d = ctx.getImageData(x0, y0, Math.max(1, Math.round(c.width * 0.6)), Math.max(1, Math.round(c.height * 0.6))).data;
+    const hist = new Uint32Array(256);
+    let n = 0;
+    for (let i = 0; i < d.length; i += 4) { hist[Math.round(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2])]++; n++; }
+    let acc = 0;
+    for (let v = 255; v >= 0; v--) { acc += hist[v]; if (acc >= n * 0.15) return Math.max(80, v); }
+    return 255;
   }
 
   App.addFiles = async (fileList) => {
@@ -54,7 +72,8 @@
             transform: { x: 0, y: 0, rotation: 0, scale: 1 },
             crop: { left: 0, top: 0, right: 0, bottom: 0 },
             frame: null, // 도곽 {corners: [[x,y]×4 왼위·오위·오아·왼아], clip}
-            display: { opacity: 1, blend: 'multiply', visible: true },
+            paper: d.paper, // 종이 밝기(0~255), 종이 밝게 보정에 사용
+            display: { opacity: 1, blend: 'darken', visible: true, whiten: false },
           });
         } catch (e) {
           failed.push(f.name);
@@ -78,6 +97,10 @@
         }
         App.emit('change');
         App.fitView();
+        // 처음 불러온 묶음에 0번이 있으면 배치도 인식 창을 바로 띄움
+        if (wasEmpty && !S.layout && App.mapSheets().length && App.openLayoutDialog) {
+          setTimeout(() => App.openLayoutDialog(), 300);
+        }
       }
       let msg = `원도 ${added.length}장을 불러왔습니다.`;
       if (images.length - fresh.length) msg += ` 이미 있는 파일 ${images.length - fresh.length}장은 건너뜀.`;

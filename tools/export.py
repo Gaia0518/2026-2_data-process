@@ -5,7 +5,8 @@
 
   - transform.x, y : 잘라낸 영역의 중심이 놓일 월드 좌표(원본 px)
   - rotation       : 시계 방향(도), scale: 배율
-  - display.blend  : multiply(곱하기) | normal, opacity: 0~1
+  - display.blend  : darken(어둡게) | multiply(곱하기) | normal, opacity: 0~1
+  - display.whiten : 종이 밝게 (paper 밝기를 흰색으로)
   - frame.corners  : 도곽 네 모서리(원본 px). frame.clip 이면 도곽 바깥을 잘라냄
 
 사용 예:
@@ -124,8 +125,13 @@ def main(argv: list[str] | None = None) -> int:
         arr = np.asarray(piece, dtype=np.float32)[py0:py1, px0:px1] / 255.0
         src, alpha = arr[..., :3], arr[..., 3:4] * float(s["display"].get("opacity", 1))
         region = canvas[y0 + py0:y0 + py1, x0 + px0:x0 + px1].astype(np.float32) / 255.0
-        if s["display"].get("blend", "multiply") == "multiply":
+        blend = s["display"].get("blend", "darken")
+        if s["display"].get("whiten") and s.get("paper"):
+            src = np.clip(src * min(3.0, 255.0 / s["paper"]), 0, 1)  # 종이 밝게
+        if blend == "multiply":
             region = region * (1 - alpha + alpha * src)
+        elif blend == "darken":
+            region = region * (1 - alpha) + np.minimum(region, src) * alpha
         else:
             region = region * (1 - alpha) + src * alpha
         canvas[y0 + py0:y0 + py1, x0 + px0:x0 + px1] = np.clip(region * 255 + 0.5, 0, 255).astype(np.uint8)
