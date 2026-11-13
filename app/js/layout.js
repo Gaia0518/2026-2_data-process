@@ -249,8 +249,49 @@
   function setMode(m) {
     mode = m;
     document.querySelectorAll('[name="lay-mode"]').forEach((el) => (el.checked = el.value === m));
-    if (m === 'sequence') { seqNext = 1; $('lay-auto').checked = false; }
+    if (m === 'sequence' && work) startStrokes();
     render();
+  }
+
+  /* ---------- 열 따라 긋기: 번호 순서대로 열(또는 행)을 긋면 그은 순서대로 1번부터 번호를 매김 ---------- */
+  let strokes = []; // 긋기마다 매긴 칸 수 (마지막 긋기 취소용)
+  function startStrokes() {
+    if (work.cells.length) work.guide = work.cells.map(({ row, col }) => ({ row, col }));
+    work.cells = [];
+    strokes = [];
+    seqNext = 1;
+    selected = null;
+    $('lay-auto').checked = false;
+  }
+  // 칸 하나에 다음 번호를 매김 (이미 매긴 칸은 건너뜀)
+  function strokeAdd(cell) {
+    if (!cell || findCell(cell.row, cell.col)) return false;
+    work.cells.push({ row: cell.row, col: cell.col, no: seqNext++ });
+    return true;
+  }
+  // 빠르게 그어 건너뛴 칸도 채움 (이전 칸 → 지금 칸 사이를 격자 단위로)
+  function strokeTo(from, to, st) {
+    if (!to) return;
+    if (!from) { if (strokeAdd(to)) st.n++; return; }
+    const n = Math.max(Math.abs(to.row - from.row), Math.abs(to.col - from.col));
+    for (let i = 1; i <= n; i++) {
+      const c = { row: Math.round(from.row + ((to.row - from.row) * i) / n), col: Math.round(from.col + ((to.col - from.col) * i) / n) };
+      if (strokeAdd(c)) st.n++;
+    }
+  }
+  function undoStroke() {
+    const n = strokes.pop();
+    if (!n) return;
+    work.cells.sort((a, b) => a.no - b.no);
+    work.cells.splice(work.cells.length - n, n);
+    seqNext = work.cells.length + 1;
+    render();
+  }
+  function useGuide() {
+    if (!work.guide) return;
+    work.cells = numberCells(work.guide, work.order);
+    $('lay-auto').checked = true;
+    setMode('edit');
   }
 
   function fit() {
@@ -302,6 +343,15 @@
     if (work) {
       const [gx, gy] = toScr(work.x0, work.y0);
       const cw = work.cw * lv.zoom, ch = work.ch * lv.zoom;
+      // 자동 제안(안내용): 점선 테두리
+      if (mode === 'sequence' && work.guide) {
+        ctx.save();
+        ctx.setLineDash([4, 3]);
+        ctx.strokeStyle = 'rgba(243,156,18,0.9)';
+        ctx.lineWidth = 2;
+        for (const c of work.guide) if (!findCell(c.row, c.col)) ctx.strokeRect(gx + c.col * cw + 3, gy + c.row * ch + 3, cw - 6, ch - 6);
+        ctx.restore();
+      }
       // 번호 칸
       for (const c of work.cells) {
         const x = gx + c.col * cw, y = gy + c.row * ch;
@@ -326,6 +376,15 @@
         ctx.strokeText(String(c.no), x, y);
         ctx.fillStyle = dup.has(c.no) || c.no > work.total ? '#c0392b' : '#0d5e57';
         ctx.fillText(String(c.no), x, y);
+      }
+      // 번호 순서 선 (긋기 결과 확인용)
+      if (mode === 'sequence' && work.cells.length > 1) {
+        const ord = work.cells.slice().sort((a, b) => a.no - b.no);
+        ctx.strokeStyle = 'rgba(13,94,87,0.55)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ord.forEach((c, i) => { const x = gx + (c.col + 0.5) * cw, y = gy + (c.row + 0.72) * ch; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+        ctx.stroke();
       }
       if (selected) {
         ctx.strokeStyle = '#f39c12';
@@ -358,6 +417,12 @@
       el.classList.toggle('is-current', i === (has ? (work.cells.length ? 2 : 1) : 0));
     });
     $('lay-grid-box').hidden = !has;
+    $('lay-stroke-box').hidden = !has || mode !== 'sequence';
+    if (has && mode === 'sequence') {
+      $('lay-use-guide').hidden = !(work.guide && work.guide.length);
+      $('lay-undo-stroke').disabled = !strokes.length;
+      $('lay-stroke-count').textContent = `${work.cells.length} / ${work.total}칸 · 긋기 ${strokes.length}번`;
+    }
     $('lay-summary').hidden = !has;
     $('lay-apply').disabled = !has || !work.cells.length;
     $('lay-apply-arrange').disabled = !has || !work.cells.length;
@@ -365,7 +430,7 @@
       region: '0번 원도에서 배치도 부분을 드래그해 사각형으로 감싸세요. 놓으면 칸과 번호를 자동으로 찾습니다.',
       cell: '배치도의 칸 하나를 정확히 드래그하세요. 그 크기로 격자를 다시 맞춥니다.',
       edit: '클릭: 칸 넣기·선택 · 빈 칸에서 끌기: 여러 칸 넣기 · 번호 칸에서 끌기: 여러 칸 빼기 · Delete: 선택한 칸 빼기 · 화면 이동: 오른쪽 버튼 끌기 또는 Shift+끌기',
-      sequence: `1번부터 순서대로 칸을 클릭하세요. 다음 번호: ${seqNext}`,
+      sequence: `번호 순서대로 열마다 첫 칸에서 끝 칸까지 그으세요 (예: 오른쪽 열부터, 위 → 아래). 클릭하면 한 칸씩. 다음 번호: ${seqNext} / ${work ? work.total : ''} · Backspace: 마지막 긋기 취소 · 화면 이동: 오른쪽 버튼 끌기`,
     }[mode];
     $('lay-hint').textContent = hint;
     if (!has) return;
@@ -426,7 +491,8 @@
       cells: proposeCells(g.scores, total, $('lay-order').value),
     };
     App.logOp('layoutDetect');
-    setMode('edit');
+    // 자동 제안은 안내(점선)로 보여 주고, 번호는 열 따라 긋기로 매김. 제안이 맞으면 [자동 제안 그대로 쓰기]
+    setMode('sequence');
     fit();
     render();
   }
@@ -570,7 +636,13 @@
       const r = canvas.getBoundingClientRect();
       const sx = e.clientX - r.left, sy = e.clientY - r.top;
       const start = toImg(sx, sy);
-      const pan = e.button !== 0 || mode === 'sequence' || (mode === 'edit' && (e.shiftKey || !cellAt(...start)));
+      const pan = e.button !== 0 || e.shiftKey || ((mode === 'edit' || mode === 'sequence') && !cellAt(...start));
+      if (mode === 'sequence' && !pan) {
+        const st = { n: 0, last: cellAt(...start) };
+        strokeTo(null, st.last, st);
+        drag = { sx, sy, moved: false, stroke: st };
+        return render();
+      }
       // 칸 클릭 모드에서 칸 위를 끌면: 빈 칸에서 시작하면 여러 칸 넣기, 번호 칸에서 시작하면 여러 칸 빼기
       const c0 = mode === 'edit' && !pan ? cellAt(...start) : null;
       const paint = c0 ? (findCell(c0.row, c0.col) ? 'remove' : 'add') : null;
@@ -582,7 +654,13 @@
       const sx = e.clientX - r.left, sy = e.clientY - r.top;
       if (Math.hypot(sx - drag.sx, sy - drag.sy) > 4) drag.moved = true;
       if (!drag.moved) return;
-      if (drag.paint) {
+      if (drag.stroke) {
+        const c = cellAt(...toImg(sx, sy));
+        if (c && (!drag.stroke.last || c.row !== drag.stroke.last.row || c.col !== drag.stroke.last.col)) {
+          strokeTo(drag.stroke.last, c, drag.stroke);
+          drag.stroke.last = c;
+        }
+      } else if (drag.paint) {
         if (!drag.painted) { drag.painted = true; paintCell(drag.c0, drag.paint); }
         paintCell(cellAt(...toImg(sx, sy)), drag.paint);
       } else if (drag.pan || (e.buttons & 6)) {
@@ -598,6 +676,11 @@
       const d = drag;
       drag = null;
       if (!d) return;
+      if (d.stroke) {
+        if (d.stroke.n) { strokes.push(d.stroke.n); App.logOp('layoutStroke'); }
+        if (work.cells.length === work.total) App.toast(`${work.total}칸 모두 번호를 매겼습니다. 확인 후 적용하세요.`);
+        return render();
+      }
       const r = canvas.getBoundingClientRect();
       const [x, y] = toImg(e.clientX - r.left, e.clientY - r.top);
       if (draft && draft.w > 4 && draft.h > 4) {
@@ -626,6 +709,7 @@
 
     $('layout-dialog').addEventListener('keydown', (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+      if (mode === 'sequence' && e.key === 'Backspace') { e.preventDefault(); return undoStroke(); }
       if ((e.key === 'Delete' || e.key === 'Backspace') && selected) { e.preventDefault(); removeSelected(); }
     });
     document.querySelectorAll('[name="lay-mode"]').forEach((el) => el.addEventListener('change', () => setMode(el.value)));
@@ -683,6 +767,9 @@
       render();
     });
     $('lay-sel-remove').addEventListener('click', removeSelected);
+    $('lay-undo-stroke').addEventListener('click', undoStroke);
+    $('lay-restart-stroke').addEventListener('click', () => { if (work) { work.cells = []; strokes = []; seqNext = 1; render(); } });
+    $('lay-use-guide').addEventListener('click', useGuide);
     $('btn-layout-detect').addEventListener('click', App.openLayoutDialog);
   };
 })(window.App);

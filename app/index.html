@@ -262,9 +262,19 @@
           <legend>마우스 동작</legend>
           <label><input type="radio" name="lay-mode" value="region"> 배치도 영역 선택 (자동 인식)</label>
           <label><input type="radio" name="lay-mode" value="edit"> 칸 클릭: 번호 넣기·고치기</label>
-          <label><input type="radio" name="lay-mode" value="sequence"> 1번부터 순서대로 클릭</label>
+          <label><input type="radio" name="lay-mode" value="sequence"> 열 따라 긋기 (1번부터 순서대로)</label>
           <label><input type="radio" name="lay-mode" value="cell"> 칸 하나 그려서 격자 맞추기</label>
         </fieldset>
+        <div id="lay-stroke-box" class="lay-box" hidden>
+          <strong>열 따라 긋기</strong>
+          <span class="muted small">번호 순서대로 열마다 첫 칸 → 끝 칸으로 그으세요. 주황 점선은 자동 제안입니다.</span>
+          <b id="lay-stroke-count"></b>
+          <div class="btn-row tight">
+            <button id="lay-undo-stroke" class="btn btn-small">마지막 긋기 취소</button>
+            <button id="lay-restart-stroke" class="btn btn-small btn-ghost">처음부터</button>
+          </div>
+          <button id="lay-use-guide" class="btn btn-small btn-ghost">자동 제안 그대로 쓰기</button>
+        </div>
         <div id="lay-grid-box" class="lay-box">
           <div class="grid2">
             <label class="field"><span>열</span><input id="lay-cols" type="number" min="1"></label>
