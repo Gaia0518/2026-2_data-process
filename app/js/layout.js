@@ -29,7 +29,7 @@
   };
 
   // 도엽 번호: 원도에 적힌 도면 번호가 있으면 그것, 없으면 파일 순서(이름_번호)
-  App.sheetNumber = (s) => App.parseSheetNo(s.sheetNo) ?? S.sheets.indexOf(s);
+  App.sheetNumber = (s) => (s.sheetNo === '—' ? null : App.parseSheetNo(s.sheetNo) ?? S.sheets.indexOf(s));
 
   const ORDERS = {
     'col-rtl': (a, b) => b.col - a.col || a.row - b.row, // 오른쪽 열부터, 위 → 아래 (지적원도에서 흔한 순서)
@@ -574,15 +574,16 @@
     S.layout.cells.sort((a, b) => a.no - b.no);
     const minR = Math.min(...S.layout.cells.map((c) => c.row)), minC = Math.min(...S.layout.cells.map((c) => c.col));
     S.layout.offset = { row: minR, col: minC };
-    for (const s of App.mapSheets()) {
-      const c = S.layout.cells.find((x) => x.no === App.sheetNumber(s));
-      s.grid = c ? { row: c.row - minR, col: c.col - minC } : null;
-    }
+    App.updateGrids();
     App.logOp('layout');
     $('layout-dialog').close();
     if (arrange) App.arrangeByLayout();
     App.emit('change');
     App.fitView();
+    const loose = App.mapSheets().filter((s) => !s.grid).length;
+    App.status(loose
+      ? `배치를 적용했습니다. 칸과 짝지어지지 않은 원도 ${loose}장 — [원도 대응표]에서 번호를 확인하세요.`
+      : '배치를 적용했습니다. 원도와 번호의 짝은 [원도 대응표]에서 확인할 수 있습니다.');
   }
 
   /* ---------- 배치대로 자동 배열 ---------- */

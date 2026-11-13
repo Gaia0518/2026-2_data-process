@@ -206,7 +206,9 @@
         <span class="names">
           <span class="new-name">${escapeHTML(App.newName(s))}</span>
           <span class="old-name" title="${escapeHTML(s.originalName)}">${escapeHTML(s.originalName)}</span>
-          ${i === 0 ? '<span class="tag">0번 · 배치도</span>' : s.sheetNo ? `<span class="tag tag-no">도면 ${escapeHTML(s.sheetNo)}</span>` : ''}
+          ${i === 0 ? '<span class="tag">0번 · 배치도</span>'
+            : App.isUnmatched && App.isUnmatched(s) ? '<span class="tag tag-warn">대응 없음</span>'
+            : S.layout || s.sheetNo ? `<span class="tag tag-no" title="${s.sheetNo ? '도면 번호 ' + escapeHTML(s.sheetNo) : '파일 순서'}">${App.sheetNumber(s)}호${s.grid ? '' : ' · 칸 없음'}</span>` : ''}
           ${s.frame && s.frame.auto && s.frame.auto.review ? '<span class="tag tag-warn" title="도곽 자동 지정 결과를 확인하세요">⚠ 도곽 확인</span>' : ''}
         </span>
         <span class="row-actions">

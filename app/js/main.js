@@ -64,6 +64,7 @@
     App.initLayoutViewer();
     App.initFrame();
     App.initLayout();
+    App.initMatch();
 
     App.on('change', () => { renderAll(); App.autosave(); });
     App.on('select', () => { App.renderList(); App.renderPanel(); App.requestDraw(); });
