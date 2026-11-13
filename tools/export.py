@@ -6,6 +6,7 @@
   - transform.x, y : 잘라낸 영역의 중심이 놓일 월드 좌표(원본 px)
   - rotation       : 시계 방향(도), scale: 배율
   - display.blend  : multiply(곱하기) | normal, opacity: 0~1
+  - frame.corners  : 도곽 네 모서리(원본 px). frame.clip 이면 도곽 바깥을 잘라냄
 
 사용 예:
   python tools/export.py data/raw/남산정/남산정.project.json --images data/raw/남산정 --scale 1
@@ -19,7 +20,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 
 Image.MAX_IMAGE_PIXELS = None  # 큰 원도 허용
 
@@ -51,12 +52,21 @@ def render_sheet(img: Image.Image, s: dict, k: float, f: float) -> Image.Image:
     """잘라내기 → 배율 → 회전한 RGBA 조각. f = 실제 이미지 px / 기록된 px"""
     c = s["crop"]
     w, h = crop_size(s)
-    box = (c["left"] * f, c["top"] * f, (c["left"] + w) * f, (c["top"] + h) * f)
-    piece = img.crop(tuple(round(v) for v in box)).convert("RGB")
+    box = tuple(round(v) for v in (c["left"] * f, c["top"] * f, (c["left"] + w) * f, (c["top"] + h) * f))
+    piece = img.crop(box).convert("RGB")
     out_w = max(1, round(w * s["transform"]["scale"] * k))
     out_h = max(1, round(h * s["transform"]["scale"] * k))
     piece = piece.resize((out_w, out_h), Image.LANCZOS)
-    piece.putalpha(255)
+    frame = s.get("frame")
+    if frame and frame.get("clip", True):
+        # 도곽 바깥(여백)은 투명하게
+        sx, sy = out_w / (box[2] - box[0]), out_h / (box[3] - box[1])
+        poly = [((x * f - box[0]) * sx, (y * f - box[1]) * sy) for x, y in frame["corners"]]
+        mask = Image.new("L", (out_w, out_h), 0)
+        ImageDraw.Draw(mask).polygon(poly, fill=255)
+        piece.putalpha(mask)
+    else:
+        piece.putalpha(255)
     rot = s["transform"]["rotation"]
     if abs(rot) > 1e-6:
         # PIL은 반시계가 +이므로 부호를 뒤집는다. expand 후에도 중심은 유지된다.

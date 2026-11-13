@@ -53,6 +53,7 @@
             grid: null,
             transform: { x: 0, y: 0, rotation: 0, scale: 1 },
             crop: { left: 0, top: 0, right: 0, bottom: 0 },
+            frame: null, // 도곽 {corners: [[x,y]×4 왼위·오위·오아·왼아], clip}
             display: { opacity: 1, blend: 'multiply', visible: true },
           });
         } catch (e) {

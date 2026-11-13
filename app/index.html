@@ -11,7 +11,7 @@
     <div class="brand">
       <span class="brand-icon" aria-hidden="true">▦</span>
       <h1>지적원도 연결 도구</h1>
-      <span class="badge">1차 프로토타입</span>
+      <span class="badge">2차 프로토타입</span>
     </div>
     <ol class="steps" aria-label="작업 단계">
       <li class="step"><span>1</span>파일 정리</li>
@@ -60,7 +60,8 @@
       <div class="toolbar">
         <div class="tool-group">
           <label class="inline">열 <input id="arrange-cols" type="number" min="1" max="30" value="" placeholder="자동"></label>
-          <button id="btn-arrange" class="btn btn-small" title="파일 순서대로 격자에 배치">자동 배열</button>
+          <button id="btn-arrange" class="btn btn-small" title="파일 순서대로 격자에 배치 (도곽을 지정했으면 도곽 크기 칸에)">자동 배열</button>
+          <button id="btn-frame-all" class="btn btn-small" title="도곽을 지정하지 않은 도면을 차례로 열기">도곽 지정</button>
         </div>
         <div class="tool-group">
           <label class="inline">겹치기
@@ -115,6 +116,18 @@
           <span>도면 번호 (원도에 적힌 번호)</span>
           <input id="f-sheetno" type="text" placeholder="예: 三, 3" autocomplete="off">
         </label>
+
+        <h3>도곽 (빨간 테두리)</h3>
+        <div class="frame-box">
+          <span id="frame-state" class="muted"></span>
+          <button id="btn-frame" class="btn btn-small btn-primary">도곽 모서리 지정</button>
+          <label id="f-clip-row" class="check check-inline"><input id="f-clip" type="checkbox"> 도곽 바깥 여백 숨기기</label>
+          <div class="btn-row tight">
+            <button id="btn-frame-ref" class="btn btn-small btn-ghost" title="이 도면의 도곽 크기를 모든 도면의 기준으로">이 도곽을 기준으로</button>
+            <button id="btn-frame-remove" class="btn btn-small btn-ghost">도곽 지우기</button>
+          </div>
+          <span id="frame-ref" class="muted small"></span>
+        </div>
 
         <h3>위치·회전·배율</h3>
         <div class="grid2">
@@ -194,6 +207,33 @@
     </form>
   </dialog>
 
+  <dialog id="frame-dialog" class="dialog dialog-wide">
+    <div class="frame-head">
+      <div>
+        <h2>도곽 모서리 지정</h2>
+        <span id="frame-sheet" class="muted"></span>
+      </div>
+      <ol class="corner-steps">
+        <li class="corner-step">① 왼쪽 위</li>
+        <li class="corner-step">② 오른쪽 위</li>
+        <li class="corner-step">③ 오른쪽 아래</li>
+        <li class="corner-step">④ 왼쪽 아래</li>
+      </ol>
+    </div>
+    <div class="frame-body"><canvas id="frame-canvas"></canvas></div>
+    <p id="frame-info" class="frame-info"></p>
+    <div class="frame-foot">
+      <label class="check check-inline"><input id="frame-snap" type="checkbox" checked> 빨간 선에 맞추기</label>
+      <label class="check check-inline"><input id="frame-autozoom" type="checkbox" checked> 다음 모서리 확대</label>
+      <span class="spacer"></span>
+      <button id="frame-fit" class="btn btn-small btn-ghost">전체 보기</button>
+      <button id="frame-clear" class="btn btn-small btn-ghost">다시 지정</button>
+      <button id="frame-cancel" class="btn btn-ghost">취소</button>
+      <button id="frame-apply" class="btn">적용</button>
+      <button id="frame-apply-next" class="btn btn-primary">적용 후 다음 도면</button>
+    </div>
+  </dialog>
+
   <div id="toast" class="toast" role="alert" hidden></div>
   <div class="drop-overlay" aria-hidden="true">원도 이미지 또는 project.json을 놓으세요</div>
 
@@ -205,6 +245,7 @@
   <script src="js/files.js"></script>
   <script src="js/canvas.js"></script>
   <script src="js/panel.js"></script>
+  <script src="js/frame.js"></script>
   <script src="js/export.js"></script>
   <script src="js/main.js"></script>
 </body>

@@ -28,7 +28,7 @@
     const started = S.log.startedAt ? Date.parse(S.log.startedAt) : null;
     $('log-time').textContent = started ? App.formatDuration(Date.now() - started) : '0:00';
     const o = S.log.ops;
-    const adjust = (o.move || 0) + (o.rotate || 0) + (o.scale || 0) + (o.crop || 0);
+    const adjust = (o.move || 0) + (o.rotate || 0) + (o.scale || 0) + (o.crop || 0) + (o.frame || 0);
     $('log-ops').textContent = `조정 ${adjust}회`;
     $('log-ops').title = Object.entries(o).map(([k, v]) => `${k}: ${v}`).join('\n') || '아직 기록 없음';
   }
@@ -62,6 +62,7 @@
     App.initCanvas();
     App.initPanel();
     App.initLayoutViewer();
+    App.initFrame();
 
     App.on('change', () => { renderAll(); App.autosave(); });
     App.on('select', () => { App.renderList(); App.renderPanel(); App.requestDraw(); });
@@ -152,6 +153,7 @@
 
     // 단축키
     window.addEventListener('keydown', (e) => {
+      if (document.querySelector('dialog[open]')) return; // 대화상자가 열려 있으면 연결 화면 단축키 끔
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.key.toLowerCase() === 'z') {
         if (isTyping(e)) return;

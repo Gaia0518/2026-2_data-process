@@ -49,6 +49,7 @@
     document.getElementById('f-opacity-val').textContent = `${Math.round(s.display.opacity * 100)}%`;
     document.getElementById('f-blend').value = s.display.blend;
     document.getElementById('f-visible').checked = s.display.visible;
+    App.renderFramePanel(s);
   };
 
   function edit(kind, fn) {

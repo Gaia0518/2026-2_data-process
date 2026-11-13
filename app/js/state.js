@@ -11,6 +11,7 @@
     zOrder: [], // 화면에 그리는 순서 (id 배열, 뒤가 위)
     selectedId: null,
     pendingProject: null, // 이미지보다 먼저 불러온 project.json
+    frameSize: null, // 기준 도곽 크기 {w, h} (월드 px). 처음 지정한 도곽으로 정해짐
     log: { startedAt: null, ops: {} },
   });
 
@@ -75,10 +76,12 @@
   function snapshot() {
     return JSON.stringify({
       project: S.project,
+      frameSize: S.frameSize,
       order: S.sheets.map((s) => s.id),
       zOrder: S.zOrder.slice(),
       sheets: S.sheets.map((s) => ({
-        id: s.id, sheetNo: s.sheetNo, transform: s.transform, crop: s.crop, display: s.display,
+        id: s.id, sheetNo: s.sheetNo, grid: s.grid, frame: s.frame,
+        transform: s.transform, crop: s.crop, display: s.display,
       })),
     });
   }
@@ -86,6 +89,7 @@
   function restore(json) {
     const d = JSON.parse(json);
     S.project = d.project;
+    S.frameSize = d.frameSize || null;
     const map = new Map(S.sheets.map((s) => [s.id, s]));
     S.sheets = d.order.map((id) => map.get(id)).filter(Boolean);
     S.zOrder = d.zOrder.filter((id) => map.has(id));
@@ -93,6 +97,8 @@
       const s = map.get(v.id);
       if (!s) continue;
       s.sheetNo = v.sheetNo;
+      s.grid = v.grid || null;
+      s.frame = v.frame || null;
       s.transform = v.transform;
       s.crop = v.crop;
       s.display = v.display;
@@ -132,6 +138,7 @@
       version: 1,
       project: S.project,
       savedAt: new Date().toISOString(),
+      frameSize: S.frameSize,
       layout: layout
         ? { file: App.newName(layout), originalName: layout.originalName, size: [layout.w, layout.h] }
         : null,
@@ -150,6 +157,7 @@
           scale: App.round(s.transform.scale, 5),
         },
         crop: { ...s.crop },
+        frame: s.frame ? { corners: s.frame.corners.map(([x, y]) => [App.round(x, 1), App.round(y, 1)]), clip: s.frame.clip } : null,
         display: { ...s.display },
       })),
       log: {
@@ -165,6 +173,7 @@
   App.applyProject = (p) => {
     App.checkpoint();
     if (p.project) S.project = p.project;
+    if (p.frameSize) S.frameSize = { ...p.frameSize };
     const pool = S.sheets.slice();
     const take = (entry) => {
       if (!entry) return null;
@@ -191,9 +200,11 @@
         const f = s.w / e.size[0];
         s.transform = { ...e.transform, scale: e.transform.scale / f };
         s.crop = Object.fromEntries(Object.entries(e.crop).map(([k, v]) => [k, v * f]));
+        s.frame = e.frame ? { ...e.frame, corners: e.frame.corners.map(([x, y]) => [x * f, y * f]) } : null;
       } else {
         s.transform = { ...e.transform };
         s.crop = { ...e.crop };
+        s.frame = e.frame ? { corners: e.frame.corners.map((c) => c.slice()), clip: e.frame.clip !== false } : null;
       }
       s.display = { opacity: 1, blend: 'multiply', visible: true, ...e.display };
       ordered.push(s);

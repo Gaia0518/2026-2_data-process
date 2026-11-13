@@ -196,6 +196,27 @@ code { font-size: 0.92em; background: var(--surface-2); padding: 1px 4px; border
 .nudge { display: flex; align-items: center; gap: 2px; margin-top: 8px; font-size: 12px; flex-wrap: wrap; }
 .nudge .muted:not(:first-child) { margin-left: 8px; }
 
+/* ---------- 도곽 ---------- */
+.frame-box { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); font-size: 12px; }
+.frame-box .btn-primary { align-self: flex-start; }
+.btn-row.tight { margin-top: 0; }
+.small { font-size: 11px; }
+.check-inline { padding-top: 0; }
+.dialog.dialog-wide { max-width: none; width: min(1200px, calc(100vw - 32px)); height: min(860px, calc(100vh - 32px)); padding: 0; }
+.dialog.dialog-wide[open] { display: flex; flex-direction: column; }
+.frame-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.frame-head h2 { margin: 0; font-size: 16px; }
+.corner-steps { display: flex; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.corner-step { padding: 3px 10px; border-radius: 999px; background: var(--surface-2); color: var(--muted); font-size: 12px; }
+.corner-step.is-done { background: var(--accent-soft); color: var(--accent); }
+.corner-step.is-current { background: var(--accent); color: #fff; }
+.frame-body { flex: 1; min-height: 0; position: relative; }
+#frame-canvas { display: block; touch-action: none; }
+.frame-info { margin: 0; padding: 8px 16px; font-size: 13px; line-height: 1.45; min-height: calc(2 * 1.45em + 16px); border-top: 1px solid var(--line); }
+.frame-info .warn, .warn { color: var(--warn); }
+.frame-foot { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.spacer { flex: 1; }
+
 /* ---------- 하단 ---------- */
 .statusbar {
   display: flex; justify-content: space-between; gap: 16px;

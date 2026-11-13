@@ -106,6 +106,14 @@
     c.scale(t.scale, t.scale);
     c.globalAlpha = s.display.opacity;
     c.globalCompositeOperation = s.display.blend === 'multiply' ? 'multiply' : 'source-over';
+    if (s.frame && s.frame.clip) {
+      // 도곽 바깥(여백)은 그리지 않음
+      const ox = s.crop.left + w / 2, oy = s.crop.top + h / 2;
+      c.beginPath();
+      s.frame.corners.forEach(([x, y], i) => (i ? c.lineTo(x - ox, y - oy) : c.moveTo(x - ox, y - oy)));
+      c.closePath();
+      c.clip();
+    }
     c.drawImage(img, s.crop.left * imgScale, s.crop.top * imgScale, w * imgScale, h * imgScale, -w / 2, -h / 2, w, h);
     c.restore();
   };
@@ -238,9 +246,10 @@
       cols = Math.ceil(Math.sqrt(all.length));
       colsInput.value = cols;
     }
+    // 도곽을 지정했으면 기준 도곽 크기를 칸 크기로, 아니면 가장 큰 도면 크기로
     const sizes = all.map((s) => App.cropSize(s));
-    const cellW = Math.max(...sizes.map((z, i) => z.w * all[i].transform.scale));
-    const cellH = Math.max(...sizes.map((z, i) => z.h * all[i].transform.scale));
+    const cellW = S.frameSize ? S.frameSize.w : Math.max(...sizes.map((z, i) => z.w * all[i].transform.scale));
+    const cellH = S.frameSize ? S.frameSize.h : Math.max(...sizes.map((z, i) => z.h * all[i].transform.scale));
 
     if (subset && subset.length) {
       // 나중에 추가한 원도는 기존 배치 오른쪽에 한 줄로
@@ -248,20 +257,15 @@
       const b = App.bounds(others);
       const x0 = b ? b.maxX + cellW * 0.6 : cellW / 2;
       const y0 = b ? b.minY + cellH / 2 : cellH / 2;
-      subset.forEach((s, i) => {
-        s.transform.x = x0 + i * cellW;
-        s.transform.y = y0;
-        s.transform.rotation = 0;
-      });
+      subset.forEach((s, i) => App.placeAt(s, x0 + i * cellW, y0));
       return App.requestDraw();
     }
 
     all.forEach((s, i) => {
       const row = Math.floor(i / cols), col = i % cols;
       s.grid = { row, col };
-      s.transform.x = col * cellW + cellW / 2;
-      s.transform.y = row * cellH + cellH / 2;
-      s.transform.rotation = 0;
+      if (!s.frame) s.transform.rotation = 0;
+      App.placeAt(s, col * cellW + cellW / 2, row * cellH + cellH / 2);
     });
     App.requestDraw();
   };
